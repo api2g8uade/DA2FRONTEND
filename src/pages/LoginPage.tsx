@@ -14,11 +14,11 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
-    const result = login(dni, password)
+    const result = await login(dni, password)
     setLoading(false)
     if (!result.ok) {
       setError(result.message)
@@ -27,8 +27,8 @@ export function LoginPage() {
     navigate('/mi-salud')
   }
 
-  const handleDemo = () => {
-    loginDemo()
+  const handleDemo = async () => {
+    await loginDemo()
     navigate('/mi-salud')
   }
 

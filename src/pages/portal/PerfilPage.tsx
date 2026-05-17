@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { currentPatient } from '@/lib/mock-data'
+import { apiUrl } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +21,18 @@ import { useAuth } from '@/src/context/AuthContext'
 import { NotificationsTab, getUnreadNotificationsCount } from './NotificacionesTab'
 
 type Tab = 'perfil' | 'notificaciones' | 'seguridad'
+
+type BackendProfile = {
+  id?: string
+  _id?: string
+  nombre: string
+  apellido: string
+  dni: string
+  email: string
+  telefono?: string
+  obraSocial?: string
+  nroAfiliado?: string
+}
 
 function useQueryParam(name: string) {
   const { search } = useLocation()
@@ -29,27 +42,83 @@ function useQueryParam(name: string) {
 function ProfileTab() {
   const { user, updateUser } = useAuth()
   const [editing, setEditing] = useState(false)
+  const [profile, setProfile] = useState<BackendProfile | null>(null)
+  const [loadingProfile, setLoadingProfile] = useState(false)
+  const [profileError, setProfileError] = useState('')
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   // Nombre consolidado del auth o del mock
-  const authenticatedName = user ? `${user.nombre} ${user.apellido}`.trim() : currentPatient.name
-  const authenticatedEmail = user?.email ?? currentPatient.email
-  const authenticatedDni = user?.dni ?? currentPatient.dni
-  const authenticatedObraSocial = user?.obraSocial ?? currentPatient.obraSocial ?? 'Ninguna'
+  const authenticatedName = profile
+    ? `${profile.nombre} ${profile.apellido}`.trim()
+    : user
+      ? `${user.nombre} ${user.apellido}`.trim()
+      : currentPatient.name
+  const authenticatedEmail = profile?.email ?? user?.email ?? currentPatient.email
+  const authenticatedDni = profile?.dni ?? user?.dni ?? currentPatient.dni
+  const authenticatedObraSocial = profile?.obraSocial ?? user?.obraSocial ?? currentPatient.obraSocial ?? 'Ninguna'
+  const authenticatedPhone = profile?.telefono ?? user?.telefono ?? currentPatient.phone
+  const authenticatedAffiliateNumber = profile?.nroAfiliado ?? user?.nroAfiliado ?? currentPatient.affiliateNumber
 
   const [form, setForm] = useState({
     name: authenticatedName,
-    phone: currentPatient.phone,
+    phone: authenticatedPhone,
     email: authenticatedEmail,
+    obraSocial: authenticatedObraSocial,
+    nroAfiliado: authenticatedAffiliateNumber,
   })
+
+  useEffect(() => {
+    if (!user?.token) {
+      setProfileError('No hay token de sesion para consultar el perfil.')
+      return
+    }
+
+    const controller = new AbortController()
+    setLoadingProfile(true)
+    setProfileError('')
+
+    fetch(apiUrl('/api/perfil'), {
+      headers: { Authorization: `Bearer ${user.token}` },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('No se pudo consultar el perfil.')
+        return response.json() as Promise<BackendProfile>
+      })
+      .then((data) => {
+        setProfile(data)
+        updateUser({
+          id: data._id ?? data.id,
+          dni: data.dni,
+          email: data.email,
+          nombre: data.nombre,
+          apellido: data.apellido,
+          telefono: data.telefono,
+          obraSocial: data.obraSocial,
+          nroAfiliado: data.nroAfiliado,
+        })
+      })
+      .catch((error) => {
+        if (error.name !== 'AbortError') setProfileError(error.message)
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingProfile(false)
+      })
+
+    return () => controller.abort()
+  }, [user?.token, updateUser])
 
   // Sincronizar form si el usuario cambia (ej. al cargar)
   useEffect(() => {
     setForm({
       name: authenticatedName,
-      phone: currentPatient.phone,
+      phone: authenticatedPhone,
       email: authenticatedEmail,
+      obraSocial: authenticatedObraSocial,
+      nroAfiliado: authenticatedAffiliateNumber,
     })
-  }, [authenticatedName, authenticatedEmail])
+  }, [authenticatedName, authenticatedEmail, authenticatedPhone, authenticatedObraSocial, authenticatedAffiliateNumber])
 
   const fields = [
     { label: 'Nombre completo', key: 'name' as const, editable: false },
@@ -59,18 +128,56 @@ function ProfileTab() {
       value: new Date(currentPatient.dateOfBirth + 'T00:00:00').toLocaleDateString('es-AR'),
       editable: false,
     },
-    { label: 'Grupo sanguíneo', value: currentPatient.bloodType, editable: false },
     { label: 'Teléfono', key: 'phone' as const, editable: true },
     { label: 'Email', key: 'email' as const, editable: true },
-    { label: 'Obra Social', value: authenticatedObraSocial, editable: false },
-    { label: 'N° de afiliado', value: currentPatient.affiliateNumber, editable: false },
+    { label: 'Obra Social', key: 'obraSocial' as const, editable: true },
+    { label: 'N° de afiliado', key: 'nroAfiliado' as const, editable: true },
   ]
 
-  const handleSave = () => {
-    updateUser({
-      email: form.email.trim(),
-    })
-    setEditing(false)
+  const handleSave = async () => {
+    if (!user?.token) {
+      setSaveError('No hay token de sesion para actualizar el perfil.')
+      return
+    }
+
+    setSavingProfile(true)
+    setSaveError('')
+
+    try {
+      const response = await fetch(apiUrl('/api/perfil'), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({
+          telefono: form.phone.trim(),
+          email: form.email.trim(),
+          obraSocial: form.obraSocial.trim(),
+          nroAfiliado: form.nroAfiliado.trim(),
+        }),
+      })
+
+      if (!response.ok) throw new Error('No se pudo actualizar el perfil.')
+
+      const updatedProfile = (await response.json()) as BackendProfile
+      setProfile(updatedProfile)
+      updateUser({
+        id: updatedProfile._id ?? updatedProfile.id,
+        dni: updatedProfile.dni,
+        email: updatedProfile.email,
+        nombre: updatedProfile.nombre,
+        apellido: updatedProfile.apellido,
+        telefono: updatedProfile.telefono,
+        obraSocial: updatedProfile.obraSocial,
+        nroAfiliado: updatedProfile.nroAfiliado,
+      })
+      setEditing(false)
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'No se pudo actualizar el perfil.')
+    } finally {
+      setSavingProfile(false)
+    }
   }
 
   return (
@@ -113,6 +220,9 @@ function ProfileTab() {
           <CardTitle className="font-serif text-base font-bold">Datos personales</CardTitle>
         </CardHeader>
         <CardContent className="divide-y divide-border">
+          {loadingProfile && <p className="py-3 text-sm text-muted-foreground">Cargando perfil...</p>}
+          {profileError && <p className="py-3 text-sm text-destructive">{profileError}</p>}
+          {saveError && <p className="py-3 text-sm text-destructive">{saveError}</p>}
           {fields.map((field) => (
             <div
               key={field.label}
@@ -136,9 +246,13 @@ function ProfileTab() {
       </Card>
 
       {editing && (
-        <Button className="w-full bg-primary text-primary-foreground hover:bg-secondary" onClick={handleSave}>
+        <Button
+          className="w-full bg-primary text-primary-foreground hover:bg-secondary"
+          onClick={handleSave}
+          disabled={savingProfile}
+        >
           <Save className="w-4 h-4 mr-2" />
-          Guardar cambios
+          {savingProfile ? 'Guardando...' : 'Guardar cambios'}
         </Button>
       )}
     </div>

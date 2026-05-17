@@ -25,7 +25,7 @@ export function RegisterPage() {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!formData.nombre.trim() || !formData.apellido.trim()) {
@@ -51,7 +51,7 @@ export function RegisterPage() {
 
     setError('')
     setLoading(true)
-    const result = register({
+    const result = await register({
       nombre: formData.nombre,
       apellido: formData.apellido,
       dni: formData.dni,

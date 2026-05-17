@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 
+import { apiUrl } from '@/lib/api'
 import { currentPatient } from '@/lib/mock-data'
 
 /** Datos públicos del usuario en sesión (sin contraseña). */
@@ -16,9 +17,13 @@ export type AuthUser = {
   email: string
   nombre: string
   apellido: string
+  id?: string
+  token?: string
   /** Copia de demostración al estilo mock-data */
   isDemo: boolean
   obraSocial?: string
+  telefono?: string
+  nroAfiliado?: string
 }
 
 type StoredAccount = {
@@ -79,6 +84,34 @@ function writeRegistered(accounts: StoredAccount[]): void {
   sessionStorage.setItem(REGISTERED_KEY, JSON.stringify(accounts))
 }
 
+async function fetchBackendSession(input: {
+  dni: string
+  email: string
+  nombre: string
+  apellido: string
+}): Promise<Partial<AuthUser>> {
+  try {
+    const response = await fetch(apiUrl('/api/auth/mock-login'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+
+    if (!response.ok) return {}
+
+    const data = await response.json()
+    return {
+      id: data.user?._id ?? data.user?.id,
+      token: data.token,
+      obraSocial: data.user?.obraSocial,
+      telefono: data.user?.telefono,
+      nroAfiliado: data.user?.nroAfiliado,
+    }
+  } catch {
+    return {}
+  }
+}
+
 let sessionListeners = new Set<() => void>()
 
 function subscribeSession(listener: () => void) {
@@ -109,15 +142,15 @@ function emitSession() {
 
 type AuthContextValue = {
   user: AuthUser | null
-  login: (dni: string, password: string) => { ok: true } | { ok: false; message: string }
+  login: (dni: string, password: string) => Promise<{ ok: true } | { ok: false; message: string }>
   register: (input: {
     nombre: string
     apellido: string
     dni: string
     email: string
     password: string
-  }) => { ok: true } | { ok: false; message: string }
-  loginDemo: () => void
+  }) => Promise<{ ok: true } | { ok: false; message: string }>
+  loginDemo: () => Promise<void>
   logout: () => void
   updateUser: (data: Partial<AuthUser>) => void
 }
@@ -131,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => null
   )
 
-  const login = useCallback((dni: string, password: string) => {
+  const login = useCallback(async (dni: string, password: string) => {
     const key = normalizeDni(dni)
     if (!key || !password.trim()) {
       return { ok: false as const, message: 'Ingresá tu DNI y contraseña para continuar.' }
@@ -141,12 +174,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!found || found.password !== password) {
       return { ok: false as const, message: 'DNI o contraseña incorrectos. Si no tenés cuenta, registrate.' }
     }
+    const backendSession = await fetchBackendSession({
+      dni: key,
+      email: found.email,
+      nombre: found.nombre,
+      apellido: found.apellido,
+    })
     const next: AuthUser = {
       dni: key,
       email: found.email,
       nombre: found.nombre,
       apellido: found.apellido,
       isDemo: false,
+      ...backendSession,
     }
     writeSession(next)
     emitSession()
@@ -154,7 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const register = useCallback(
-    (input: {
+    async (input: {
       nombre: string
       apellido: string
       dni: string
@@ -178,12 +218,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       writeRegistered(accounts)
 
+      const backendSession = await fetchBackendSession({
+        dni: key,
+        email: input.email.trim(),
+        nombre: input.nombre.trim(),
+        apellido: input.apellido.trim(),
+      })
       const next: AuthUser = {
         dni: key,
         email: input.email.trim(),
         nombre: input.nombre.trim(),
         apellido: input.apellido.trim(),
         isDemo: false,
+        ...backendSession,
       }
       writeSession(next)
       emitSession()
@@ -192,10 +239,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     []
   )
 
-  const loginDemo = useCallback(() => {
+  const loginDemo = useCallback(async () => {
     const parts = currentPatient.name.trim().split(/\s+/)
     const apellido = parts.length > 1 ? parts[parts.length - 1]! : ''
     const nombre = parts.length > 1 ? parts.slice(0, -1).join(' ') : (parts[0] ?? '')
+    const backendSession = await fetchBackendSession({
+      dni: normalizeDni(currentPatient.dni),
+      email: currentPatient.email,
+      nombre,
+      apellido,
+    })
     const next: AuthUser = {
       dni: normalizeDni(currentPatient.dni),
       email: currentPatient.email,
@@ -203,6 +256,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       apellido,
       isDemo: true,
       obraSocial: currentPatient.obraSocial,
+      ...backendSession,
     }
     writeSession(next)
     emitSession()
