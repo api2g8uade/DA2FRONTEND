@@ -131,7 +131,7 @@ function PrescriptionsTab() {
                       <p className="font-semibold text-foreground">Receta {rec._id.slice(-6)}</p>
                       <p className="text-sm text-muted-foreground">{rec.medicoId}</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Emitida el {formatDate(rec.fechaEmision)}
+                        Emitida el {rec.fechaEmision.split('T')[0].split('-').reverse().join('/')}
                       </p>
                     </div>
                   </div>
