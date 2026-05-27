@@ -14,18 +14,25 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { upcomingAppointments, labResults } from '@/lib/mock-data'
+import { fetchLabResults, type LabResult } from '@/lib/api/labResults'
+import { upcomingAppointments} from '@/lib/mock-data'
 import { getInitialVirtualMeetings, toUpcomingAppointment } from '@/lib/virtual-meetings'
 import { useRecipes } from '@/src/context/RecipesContext'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { useAuth } from '@/src/context/AuthContext'
 
 type Tab = 'turnos' | 'recetas' | 'laboratorio'
 
 function formatDate(dateStr: string) {
-  const date = new Date(dateStr + 'T00:00:00')
-  return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
+  const date = new Date(dateStr)
+
+  return date.toLocaleDateString('es-AR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
 }
 
 type UpcomingAppointment = (typeof upcomingAppointments)[number]
@@ -181,65 +188,98 @@ function PrescriptionsTab() {
 
 function LabTab() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [labResults, setLabResults] = useState<LabResult[]>([])
+
+  const { user } = useAuth()
+
+  useEffect(() => {
+    if (!user?.token) return
+
+    async function loadLabResults() {
+      try {
+        const data = await fetchLabResults(user!.token!)
+
+        setLabResults(data)
+
+        console.log('Lab results:', data)
+      } catch (error) {
+        console.error('Error cargando laboratorio:', error)
+      }
+    }
+
+    loadLabResults()
+  }, [user])
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="font-serif text-xl font-bold text-foreground">Resultados de Laboratorio</h2>
-        <Button variant="outline" size="sm" className="border-border text-foreground hover:bg-muted text-xs">
+        <h2 className="font-serif text-xl font-bold text-foreground">
+          Resultados de Laboratorio
+        </h2>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="border-border text-foreground hover:bg-muted text-xs"
+          onClick={() => window.location.reload()}
+        >
           <RefreshCw className="w-3.5 h-3.5 mr-2" />
           Actualizar
         </Button>
       </div>
+
+      {labResults.length === 0 && (
+        <Card className="border border-border shadow-none">
+          <CardContent className="p-6 text-center text-muted-foreground">
+            No hay resultados de laboratorio disponibles.
+          </CardContent>
+        </Card>
+      )}
+
       {labResults.map((lab) => {
-        const isOpen = expandedId === lab.id
+        const isOpen = expandedId === lab._id
+
         return (
           <Card
-            key={lab.id}
-            className={cn(
-              'border shadow-none overflow-hidden',
-              lab.critical ? 'border-amber-200' : 'border-border'
-            )}
+            key={lab._id}
+            className="border border-border shadow-none overflow-hidden"
           >
             <button
               className="w-full text-left"
-              onClick={() => setExpandedId(isOpen ? null : lab.id)}
+              onClick={() => setExpandedId(isOpen ? null : lab._id)}
               aria-expanded={isOpen}
             >
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div className="flex gap-4">
-                    <div
-                      className={cn(
-                        'flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center',
-                        lab.critical ? 'bg-amber-50' : 'bg-primary/10'
-                      )}
-                    >
-                      <FlaskConical className={cn('w-6 h-6', lab.critical ? 'text-amber-600' : 'text-primary')} />
+                    <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <FlaskConical className="w-6 h-6 text-primary" />
                     </div>
+
                     <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-foreground">{lab.type}</p>
-                        {lab.critical && <AlertTriangle className="w-4 h-4 text-amber-500" />}
-                      </div>
-                      <p className="text-sm text-muted-foreground">{lab.doctor}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{formatDate(lab.date)}</p>
+                      <p className="font-semibold text-foreground">
+                        {lab.estudio}
+                      </p>
+
+                      <p className="text-sm text-muted-foreground">
+                        Estado: {lab.estado}
+                      </p>
+
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatDate(lab.fechaRealizacion)}
+                      </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {lab.critical && (
-                      <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs" variant="outline">
-                        Revisar
-                      </Badge>
-                    )}
-                    {isOpen ? (
-                      <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                    )}
-                  </div>
+
+                  {isOpen ? (
+                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  )}
                 </div>
               </CardContent>
             </button>
+
             {isOpen && (
               <div className="px-5 pb-5 border-t border-border">
                 <div className="pt-4">
@@ -247,28 +287,55 @@ function LabTab() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-border">
-                          <th className="text-left text-xs font-semibold text-muted-foreground pb-2 pr-4">Parámetro</th>
-                          <th className="text-right text-xs font-semibold text-muted-foreground pb-2 pr-4">Valor</th>
-                          <th className="text-right text-xs font-semibold text-muted-foreground pb-2 pr-4">Referencia</th>
-                          <th className="text-right text-xs font-semibold text-muted-foreground pb-2">Estado</th>
+                          <th className="text-left text-xs font-semibold text-muted-foreground pb-2 pr-4">
+                            Parámetro
+                          </th>
+
+                          <th className="text-right text-xs font-semibold text-muted-foreground pb-2 pr-4">
+                            Valor
+                          </th>
+
+                          <th className="text-right text-xs font-semibold text-muted-foreground pb-2 pr-4">
+                            Referencia
+                          </th>
+
+                          <th className="text-right text-xs font-semibold text-muted-foreground pb-2">
+                            Estado
+                          </th>
                         </tr>
                       </thead>
+
                       <tbody>
-                        {lab.results.map((r, i) => (
-                          <tr key={i} className="border-b border-border/50 last:border-0">
-                            <td className="py-2.5 pr-4 text-foreground">{r.name}</td>
-                            <td className="py-2.5 pr-4 text-right font-mono font-semibold text-foreground">
-                              {r.value} <span className="text-muted-foreground font-normal">{r.unit}</span>
+                        {lab.resultados.map((r, i) => (
+                          <tr
+                            key={i}
+                            className="border-b border-border/50 last:border-0"
+                          >
+                            <td className="py-2.5 pr-4 text-foreground">
+                              {r.parametro}
                             </td>
-                            <td className="py-2.5 pr-4 text-right text-muted-foreground">{r.reference}</td>
+
+                            <td className="py-2.5 pr-4 text-right font-mono font-semibold text-foreground">
+                              {r.valor}{' '}
+                              <span className="text-muted-foreground font-normal">
+                                {r.unidad}
+                              </span>
+                            </td>
+
+                            <td className="py-2.5 pr-4 text-right text-muted-foreground">
+                              {r.rangoReferencia}
+                            </td>
+
                             <td className="py-2.5 text-right">
-                              {r.status === 'normal' ? (
+                              {!r.fueraDeRango ? (
                                 <span className="flex items-center justify-end gap-1 text-primary text-xs">
-                                  <CheckCircle className="w-3.5 h-3.5" /> Normal
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                  Normal
                                 </span>
                               ) : (
                                 <span className="flex items-center justify-end gap-1 text-amber-600 text-xs">
-                                  <AlertTriangle className="w-3.5 h-3.5" /> {r.status}
+                                  <AlertTriangle className="w-3.5 h-3.5" />
+                                  Fuera de rango
                                 </span>
                               )}
                             </td>
@@ -277,7 +344,24 @@ function LabTab() {
                       </tbody>
                     </table>
                   </div>
-                  <Button variant="outline" size="sm" className="mt-4 border-border text-foreground hover:bg-muted">
+
+                  {lab.observaciones && (
+                    <div className="mt-4 rounded-lg bg-muted p-3">
+                      <p className="text-xs font-semibold text-muted-foreground mb-1">
+                        Observaciones
+                      </p>
+
+                      <p className="text-sm text-foreground">
+                        {lab.observaciones}
+                      </p>
+                    </div>
+                  )}
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4 border-border text-foreground hover:bg-muted"
+                  >
                     <Download className="w-3.5 h-3.5 mr-2" />
                     Descargar informe
                   </Button>
@@ -346,7 +430,7 @@ export function MiSaludPage() {
             icon: FileText,
             color: 'text-accent',
           },
-          { label: 'Resultados', value: labResults.length, icon: FlaskConical, color: 'text-primary' },
+          { label: 'Resultados', value: 0, icon: FlaskConical, color: 'text-primary' },
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label} className="border-border shadow-none">
             <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
