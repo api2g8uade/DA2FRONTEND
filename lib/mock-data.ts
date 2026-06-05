@@ -1,7 +1,7 @@
 // Mock data for Health Grid Patient Portal
 
 export const currentPatient = {
-  id: "PAT-00142",
+  id: 101,
   name: "María Elena González",
   dni: "28.345.671",
   dateOfBirth: "1985-07-14",

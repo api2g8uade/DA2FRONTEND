@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchLabResults, type LabResult } from '@/lib/api/labResults'
-import { upcomingAppointments} from '@/lib/mock-data'
+import { fetchAppointments, type UpcomingAppointment } from '@/lib/api/appointments'
 import { getInitialVirtualMeetings, toUpcomingAppointment } from '@/lib/virtual-meetings'
 import { useRecipes } from '@/src/context/RecipesContext'
 import { Badge } from '@/components/ui/badge'
@@ -35,7 +35,7 @@ function formatDate(dateStr: string) {
   })
 }
 
-type UpcomingAppointment = (typeof upcomingAppointments)[number]
+
 
 function AppointmentsTab({ appointments }: { appointments: UpcomingAppointment[] }) {
   return (
@@ -117,12 +117,13 @@ function PrescriptionsTab() {
     <div className="space-y-4">
       <h2 className="font-serif text-xl font-bold text-foreground">Historial de Recetas</h2>
       {recipes.map((rec) => {
-        const isOpen = expandedId === rec._id
+        const recId = rec.id_receta?.toString() || rec._id || 'Desconocido'
+        const isOpen = expandedId === recId
         return (
-          <Card key={rec._id} className="border-border shadow-none overflow-hidden">
+          <Card key={recId} className="border-border shadow-none overflow-hidden">
             <button
               className="w-full text-left"
-              onClick={() => setExpandedId(isOpen ? null : rec._id)}
+              onClick={() => setExpandedId(isOpen ? null : recId)}
               aria-expanded={isOpen}
             >
               <CardContent className="p-5">
@@ -132,11 +133,18 @@ function PrescriptionsTab() {
                       <FileText className="w-6 h-6 text-accent" />
                     </div>
                     <div>
-                      <p className="font-semibold text-foreground">Receta {rec._id.slice(-6)}</p>
-                      <p className="text-sm text-muted-foreground">{rec.medicoId}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Emitida el {rec.fechaEmision.split('T')[0].split('-').reverse().join('/')}
-                      </p>
+                      <p className="font-semibold text-foreground">Receta {recId.slice(-6)}</p>
+                      {rec.medicoId && <p className="text-sm text-muted-foreground">{rec.medicoId}</p>}
+                      {rec.fechaEmision && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Emitida el {rec.fechaEmision.split('T')[0].split('-').reverse().join('/')}
+                        </p>
+                      )}
+                      {rec.id_evolucion && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Evolución asociada: {rec.id_evolucion}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -144,7 +152,7 @@ function PrescriptionsTab() {
                       variant="outline"
                       className={cn(
                         'text-xs',
-                        rec.estado === 'VIGENTE'
+                        (rec.estado === 'VIGENTE' || rec.estado === 'Activa')
                           ? 'bg-primary/10 text-primary border-primary/20'
                           : 'bg-muted text-muted-foreground'
                       )}
@@ -165,9 +173,23 @@ function PrescriptionsTab() {
                 <div className="pt-4 space-y-3">
                   <div className="bg-muted rounded-lg p-3">
                     <p className="text-sm font-semibold text-foreground">{rec.medicamento}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Dosis: {rec.dosis}</p>
+                    {rec.dosis && <p className="text-xs text-muted-foreground mt-0.5">Dosis: {rec.dosis}</p>}
                     <p className="text-xs text-muted-foreground mt-1">Indicaciones: {rec.indicaciones}</p>
                   </div>
+
+                  {rec.alertas_farmacologicas && rec.alertas_farmacologicas.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-xs font-semibold text-destructive uppercase tracking-wider mb-2">
+                        Alertas Farmacológicas
+                      </h4>
+                      {rec.alertas_farmacologicas.map((alerta: any, idx: number) => (
+                        <div key={idx} className="bg-destructive/10 text-destructive text-sm p-3 rounded-md mb-2">
+                          <p className="font-semibold">{alerta.tipo}</p>
+                          <p>{alerta.descripcion}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -258,15 +280,15 @@ function LabTab() {
 
                     <div>
                       <p className="font-semibold text-foreground">
-                        {lab.estudio}
+                        {lab.estudiosSolicitados?.[0]?.nombre || 'Orden de Laboratorio'}
                       </p>
 
                       <p className="text-sm text-muted-foreground">
-                        Estado: {lab.estado}
+                        Estado: {lab.estado === '3' ? 'Finalizado' : 'Pendiente'}
                       </p>
 
                       <p className="text-xs text-muted-foreground mt-1">
-                        {formatDate(lab.fechaRealizacion)}
+                        {formatDate(lab.fechaSolicitud)}
                       </p>
                     </div>
                   </div>
@@ -312,18 +334,20 @@ function LabTab() {
                             className="border-b border-border/50 last:border-0"
                           >
                             <td className="py-2.5 pr-4 text-foreground">
-                              {r.parametro}
+                              {r.nombreAnalito}
                             </td>
 
                             <td className="py-2.5 pr-4 text-right font-mono font-semibold text-foreground">
                               {r.valor}{' '}
                               <span className="text-muted-foreground font-normal">
-                                {r.unidad}
+                                {r.unidadMedida}
                               </span>
                             </td>
 
                             <td className="py-2.5 pr-4 text-right text-muted-foreground">
-                              {r.rangoReferencia}
+                              {r.rangosReferencia?.length > 0 
+                                ? `${r.rangosReferencia[0].valorMinimo} - ${r.rangosReferencia[0].valorMaximo}`
+                                : '-'}
                             </td>
 
                             <td className="py-2.5 text-right">
@@ -345,15 +369,19 @@ function LabTab() {
                     </table>
                   </div>
 
-                  {lab.observaciones && (
+                  {lab.resultados.some(r => r.observacionTecnica) && (
                     <div className="mt-4 rounded-lg bg-muted p-3">
                       <p className="text-xs font-semibold text-muted-foreground mb-1">
                         Observaciones
                       </p>
 
-                      <p className="text-sm text-foreground">
-                        {lab.observaciones}
-                      </p>
+                      <ul className="text-sm text-foreground list-disc list-inside">
+                        {lab.resultados
+                          .filter(r => r.observacionTecnica)
+                          .map((r, i) => (
+                            <li key={i}>{r.nombreAnalito}: {r.observacionTecnica}</li>
+                          ))}
+                      </ul>
                     </div>
                   )}
 
@@ -384,13 +412,36 @@ const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
 export function MiSaludPage() {
   const [activeTab, setActiveTab] = useState<Tab>('turnos')
   const { recipes, refreshRecipes } = useRecipes()
+  const { user } = useAuth()
+
+  const [appointments, setAppointments] = useState<UpcomingAppointment[]>([])
+  const [loadingAppointments, setLoadingAppointments] = useState(true)
+  const [appointmentsError, setAppointmentsError] = useState<string | null>(null)
 
   useEffect(() => {
     refreshRecipes()
   }, [refreshRecipes])
 
+  useEffect(() => {
+    async function loadAppointments() {
+      if (!user?.token) return
+      try {
+        setLoadingAppointments(true)
+        setAppointmentsError(null)
+        const data = await fetchAppointments(user.token)
+        setAppointments(data)
+      } catch (err: any) {
+        console.error('Error fetching appointments:', err)
+        setAppointmentsError('No se pudieron cargar los turnos.')
+      } finally {
+        setLoadingAppointments(false)
+      }
+    }
+    loadAppointments()
+  }, [user])
+
   const upcomingAppointmentsWithVirtualMeetings = useMemo(() => {
-    const nonVirtualAppointments = upcomingAppointments.filter((appointment) => appointment.modality !== 'virtual')
+    const nonVirtualAppointments = appointments.filter((appointment) => appointment.modality !== 'virtual')
     const virtualMeetingsAsAppointments = getInitialVirtualMeetings().map(toUpcomingAppointment)
 
     return [...nonVirtualAppointments, ...virtualMeetingsAsAppointments].sort((a, b) => {
@@ -398,7 +449,7 @@ export function MiSaludPage() {
       const dateB = new Date(`${b.date}T${b.time}:00`).getTime()
       return dateA - dateB
     })
-  }, [])
+  }, [appointments])
 
   const activeRecipesCount = useMemo(() => {
     return recipes.filter((r) => r.estado === 'VIGENTE').length

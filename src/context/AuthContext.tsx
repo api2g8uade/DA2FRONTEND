@@ -118,6 +118,7 @@ async function fetchBackendSession(input: {
   nombre: string
   apellido: string
   password?: string
+  coreId?: string | number
 }): Promise<Partial<AuthUser>> {
   try {
     const mode = await getBackendMode()
@@ -142,6 +143,7 @@ async function fetchBackendSession(input: {
         email: input.email,
         nombre: input.nombre,
         apellido: input.apellido,
+        coreId: input.coreId,
       }),
     })
     if (!response.ok) return {}
@@ -289,6 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: currentPatient.email,
       nombre,
       apellido,
+      coreId: currentPatient.id,
     })
     const next: AuthUser = {
       dni: normalizeDni(currentPatient.dni),
