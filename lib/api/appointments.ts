@@ -22,43 +22,22 @@ export async function fetchAppointments(token: string): Promise<UpcomingAppointm
   }
 
   return rawTurnos.map((t: any) => {
-    // Si viene de Módulo 2
-    if (t.starts_at && t.medic) {
-      const startsAt = new Date(t.starts_at)
-      let status = 'pendiente'
-      if (t.status === 'CONFIRMED') status = 'confirmado'
-      else if (t.status === 'PENDING_CONFIRMATION') status = 'pendiente'
-      else if (t.status === 'CANCELLED') status = 'cancelado'
-      else if (t.status === 'COMPLETED') status = 'completado'
-      else if (t.status) status = t.status.toLowerCase()
+    let status = 'pendiente'
+    if (t.status === 'CONFIRMED' || t.status === 'confirmado') status = 'confirmado'
+    else if (t.status === 'PENDING_CONFIRMATION' || t.status === 'pendiente') status = 'pendiente'
+    else if (t.status === 'CANCELLED' || t.status === 'cancelado') status = 'cancelado'
+    else if (t.status === 'COMPLETED' || t.status === 'completado') status = 'completado'
+    else if (t.status) status = t.status.toLowerCase()
 
-      return {
-        id: String(t.id),
-        doctor: t.medic.fullname || 'Médico Asignado',
-        specialty: t.speciality?.name || 'Medicina General',
-        date: t.starts_at.split(' ')[0],
-        time: t.starts_at.split(' ')[1].substring(0, 5), // HH:mm
-        location: t.medical_center?.name || 'Centro Médico',
-        modality: t.modality === 'virtual' ? 'virtual' : 'presencial', // M2 currently doesn't specify virtual, default to presencial
-        status: status,
-      }
-    }
-
-    // Si viene de DB local (Appointment model)
-    const dateObj = new Date(t.fecha)
-    const yyyy = dateObj.getFullYear()
-    const mm = String(dateObj.getMonth() + 1).padStart(2, '0')
-    const dd = String(dateObj.getDate()).padStart(2, '0')
-    const dateStr = `${yyyy}-${mm}-${dd}`
     return {
-      id: t._id || t.id,
-      doctor: t.medico || 'Médico Asignado',
-      specialty: t.especialidad || 'Especialidad',
-      date: dateStr,
-      time: t.hora || '00:00',
-      location: t.lugar || 'Consultorio',
-      modality: t.modalidad === 'virtual' ? 'virtual' : 'presencial',
-      status: t.estado || 'confirmado',
+      id: String(t.id || t._id),
+      doctor: t.medic?.fullname || 'Médico Asignado',
+      specialty: t.speciality?.name || 'Medicina General',
+      date: t.starts_at ? t.starts_at.split(' ')[0] : '',
+      time: t.starts_at && t.starts_at.split(' ').length > 1 ? t.starts_at.split(' ')[1].substring(0, 5) : '00:00', // HH:mm
+      location: t.medical_center?.name || 'Centro Médico',
+      modality: t.modality === 'virtual' ? 'virtual' : 'presencial',
+      status: status,
     }
   })
 }

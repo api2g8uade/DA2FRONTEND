@@ -1,14 +1,24 @@
+export interface AlertaFarmacologica {
+  tipo: string
+  descripcion: string
+}
+
 export type Recipe = {
-  _id: string
-  pacienteId: string
-  medicoId: string
+  _id?: string
+  id_receta?: number
+  id_paciente?: number
+  id_evolucion?: number
   medicamento: string
-  dosis: string
   indicaciones: string
-  fechaEmision: string
-  estado: 'VIGENTE' | 'VENCIDA'
-  createdAt: string
-  updatedAt: string
+  estado: string
+  alertas_farmacologicas?: AlertaFarmacologica[]
+  createdAt?: string
+  updatedAt?: string
+  
+  // Legacy properties for local compatibility
+  medicoId?: string
+  dosis?: string
+  fechaEmision?: string
 }
 
 export type Medication = {
