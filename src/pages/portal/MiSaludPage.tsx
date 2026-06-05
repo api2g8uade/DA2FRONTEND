@@ -168,14 +168,6 @@ function PrescriptionsTab() {
                     <p className="text-xs text-muted-foreground mt-0.5">Dosis: {rec.dosis}</p>
                     <p className="text-xs text-muted-foreground mt-1">Indicaciones: {rec.indicaciones}</p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2 border-border text-foreground hover:bg-muted"
-                  >
-                    <Download className="w-3.5 h-3.5 mr-2" />
-                    Descargar PDF
-                  </Button>
                 </div>
               </div>
             )}
