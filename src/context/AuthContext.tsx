@@ -41,6 +41,20 @@ function normalizeDni(value: string): string {
   return value.replace(/\D/g, '')
 }
 
+function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function fallbackDniFromEmail(email: string): string {
+  let hash = 0
+
+  for (let i = 0; i < email.length; i++) {
+    hash = (hash * 31 + email.charCodeAt(i)) >>> 0
+  }
+
+  return String(hash).padStart(8, '0').slice(0, 8)
+}
+
 let currentSession: AuthUser | null = null
 let sessionInitialized = false
 
@@ -51,14 +65,14 @@ function readSession(): AuthUser | null {
     const raw = sessionStorage.getItem(SESSION_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as AuthUser
-      if (parsed?.dni && parsed.email) {
+      if (parsed?.email) {
         currentSession = parsed
       }
     }
   } catch {
     currentSession = null
   }
-  
+
   sessionInitialized = true
   return currentSession
 }
@@ -85,12 +99,11 @@ function writeRegistered(accounts: StoredAccount[]): void {
 }
 
 /**
- * Detecta el modo del back (mock|real) consultando GET /api/config. Se cachea
- * en memoria para no pegarle en cada login. Así el front "respeta el entorno":
- *   - dev   (mock) -> autentica con /api/auth/mock-login
- *   - prod  (real) -> autentica contra el Core via /api/auth/login (email+password)
+ * Detecta el modo del back (mock|real) consultando GET /api/config.
+ * En este flujo local seguimos usando mock-login para obtener token interno.
  */
 let backendModePromise: Promise<'mock' | 'real'> | null = null
+
 function getBackendMode(): Promise<'mock' | 'real'> {
   if (!backendModePromise) {
     backendModePromise = fetch(apiUrl('/api/config'))
@@ -98,10 +111,11 @@ function getBackendMode(): Promise<'mock' | 'real'> {
       .then((d) => (d?.integrationMode === 'real' ? 'real' : 'mock'))
       .catch(() => 'mock')
   }
+
   return backendModePromise
 }
 
-/** Normaliza la respuesta del back (mismo shape en mock-login y login real). */
+/** Normaliza la respuesta del back. */
 function mapBackendUser(data: any): Partial<AuthUser> {
   return {
     id: data?.user?._id ?? data?.user?.id,
@@ -122,18 +136,19 @@ async function fetchBackendSession(input: {
   try {
     const mode = await getBackendMode()
 
-    // Modo REAL: autenticamos contra el Core (M10) con email + password.
     if (mode === 'real' && input.password) {
       const real = await fetch(apiUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: input.email, password: input.password }),
+        body: JSON.stringify({
+          email: input.email,
+          password: input.password,
+        }),
       })
+
       if (real.ok) return mapBackendUser(await real.json())
-      return {} // el Core rechazó: no rompemos el flujo de demo del front
     }
 
-    // Modo MOCK (o sin password, ej. login demo): mock-login del back.
     const response = await fetch(apiUrl('/api/auth/mock-login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -144,7 +159,9 @@ async function fetchBackendSession(input: {
         apellido: input.apellido,
       }),
     })
+
     if (!response.ok) return {}
+
     return mapBackendUser(await response.json())
   } catch {
     return {}
@@ -156,15 +173,14 @@ let sessionListeners = new Set<() => void>()
 function subscribeSession(listener: () => void) {
   sessionListeners.add(listener)
 
-  // También escuchar cambios de otras pestañas (opcional pero recomendado)
   const handleStorage = (e: StorageEvent) => {
     if (e.key === SESSION_KEY) {
-      // Forzar re-lectura
       sessionInitialized = false
       readSession()
       listener()
     }
   }
+
   window.addEventListener('storage', handleStorage)
 
   return () => {
@@ -174,14 +190,12 @@ function subscribeSession(listener: () => void) {
 }
 
 function emitSession() {
-  // Asegurarnos de que la próxima lectura no use el caché viejo
-  // Aunque writeSession ya actualiza currentSession, esto es por seguridad
-  sessionListeners.forEach((l) => l())
+  sessionListeners.forEach((listener) => listener())
 }
 
 type AuthContextValue = {
   user: AuthUser | null
-  login: (dni: string, password: string) => Promise<{ ok: true } | { ok: false; message: string }>
+  login: (email: string, password: string) => Promise<{ ok: true } | { ok: false; message: string }>
   register: (input: {
     nombre: string
     apellido: string
@@ -203,33 +217,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => null
   )
 
-  const login = useCallback(async (dni: string, password: string) => {
-    const key = normalizeDni(dni)
-    if (!key || !password.trim()) {
-      return { ok: false as const, message: 'Ingresá tu DNI y contraseña para continuar.' }
+  const login = useCallback(async (email: string, password: string) => {
+    const cleanEmail = normalizeEmail(email)
+
+    if (!cleanEmail || !password.trim()) {
+      return { ok: false as const, message: 'Ingresá tu email y contraseña para continuar.' }
     }
+
     const accounts = readRegistered()
-    const found = accounts.find((a) => normalizeDni(a.dni) === key)
+    const found = accounts.find((account) => normalizeEmail(account.email) === cleanEmail)
+
     if (!found || found.password !== password) {
-      return { ok: false as const, message: 'DNI o contraseña incorrectos. Si no tenés cuenta, registrate.' }
+      return { ok: false as const, message: 'Email o contraseña incorrectos. Si no tenés cuenta, registrate.' }
     }
+
+    const dni = normalizeDni(found.dni) || fallbackDniFromEmail(cleanEmail)
+
     const backendSession = await fetchBackendSession({
-      dni: key,
+      dni,
       email: found.email,
       nombre: found.nombre,
       apellido: found.apellido,
       password,
     })
+
     const next: AuthUser = {
-      dni: key,
+      dni,
       email: found.email,
       nombre: found.nombre,
       apellido: found.apellido,
       isDemo: false,
       ...backendSession,
     }
+
     writeSession(next)
     emitSession()
+
     return { ok: true as const }
   }, [])
 
@@ -241,40 +264,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: string
       password: string
     }) => {
-      const key = normalizeDni(input.dni)
-      if (!key) return { ok: false as const, message: 'Ingresá un DNI válido.' }
+      const cleanEmail = normalizeEmail(input.email)
+      const dni = normalizeDni(input.dni) || fallbackDniFromEmail(cleanEmail)
+
+      if (!input.nombre.trim() || !input.apellido.trim()) {
+        return { ok: false as const, message: 'Completá tu nombre y apellido.' }
+      }
+
+      if (!cleanEmail || !cleanEmail.includes('@')) {
+        return { ok: false as const, message: 'Ingresá un email válido.' }
+      }
+
+      if (input.password.length < 6) {
+        return { ok: false as const, message: 'La contraseña debe tener al menos 6 caracteres.' }
+      }
 
       const accounts = readRegistered()
-      if (accounts.some((a) => normalizeDni(a.dni) === key)) {
-        return { ok: false as const, message: 'Ya existe una cuenta con ese DNI. Iniciá sesión.' }
+
+      if (accounts.some((account) => normalizeEmail(account.email) === cleanEmail)) {
+        return { ok: false as const, message: 'Ya existe una cuenta con ese email. Iniciá sesión.' }
       }
 
       accounts.push({
-        dni: key,
-        email: input.email.trim(),
+        dni,
+        email: cleanEmail,
         nombre: input.nombre.trim(),
         apellido: input.apellido.trim(),
         password: input.password,
       })
+
       writeRegistered(accounts)
 
       const backendSession = await fetchBackendSession({
-        dni: key,
-        email: input.email.trim(),
+        dni,
+        email: cleanEmail,
         nombre: input.nombre.trim(),
         apellido: input.apellido.trim(),
         password: input.password,
       })
+
       const next: AuthUser = {
-        dni: key,
-        email: input.email.trim(),
+        dni,
+        email: cleanEmail,
         nombre: input.nombre.trim(),
         apellido: input.apellido.trim(),
         isDemo: false,
         ...backendSession,
       }
+
       writeSession(next)
       emitSession()
+
       return { ok: true as const }
     },
     []
@@ -284,21 +324,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const parts = currentPatient.name.trim().split(/\s+/)
     const apellido = parts.length > 1 ? parts[parts.length - 1]! : ''
     const nombre = parts.length > 1 ? parts.slice(0, -1).join(' ') : (parts[0] ?? '')
+
+    const demoEmail = normalizeEmail(currentPatient.email)
+    const demoDni = normalizeDni(currentPatient.dni) || fallbackDniFromEmail(demoEmail)
+
     const backendSession = await fetchBackendSession({
-      dni: normalizeDni(currentPatient.dni),
-      email: currentPatient.email,
+      dni: demoDni,
+      email: demoEmail,
       nombre,
       apellido,
     })
+
     const next: AuthUser = {
-      dni: normalizeDni(currentPatient.dni),
-      email: currentPatient.email,
+      dni: demoDni,
+      email: demoEmail,
       nombre,
       apellido,
       isDemo: true,
       obraSocial: currentPatient.obraSocial,
       ...backendSession,
     }
+
     writeSession(next)
     emitSession()
   }, [])
@@ -310,6 +356,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateUser = useCallback((data: Partial<AuthUser>) => {
     if (!currentSession) return
+
     const next = { ...currentSession, ...data }
     writeSession(next)
     emitSession()
