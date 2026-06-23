@@ -42,13 +42,22 @@ function AppointmentsTab({ appointments }: { appointments: UpcomingAppointment[]
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h2 className="font-serif text-lg sm:text-xl font-bold text-foreground">Turnos Próximos</h2>
+<Button
+  asChild
+  size="sm"
+  className="bg-primary text-primary-foreground hover:bg-secondary w-full sm:w-auto"
+>
+  <a href="https://turnos.solefrancisco.com">
+    + Solicitar turno
+  </a>
+</Button>
       </div>
       {appointments.map((appt) => (
         <Card key={appt.id} className="border-border shadow-none">
           <CardContent className="p-4 sm:p-5">
             <div className="flex flex-col gap-3">
               <div className="flex gap-3 sm:gap-4">
-                <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                   {appt.modality === 'virtual' ? (
                     <Video className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                   ) : (
@@ -60,13 +69,13 @@ function AppointmentsTab({ appointments }: { appointments: UpcomingAppointment[]
                   <p className="text-xs sm:text-sm text-muted-foreground truncate">{appt.specialty}</p>
                   <div className="flex flex-col gap-1.5 mt-2">
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                      <Clock className="w-3.5 h-3.5 shrink-0" />
                       <span className="truncate">
                         {formatDate(appt.date)} · {appt.time} hs
                       </span>
                     </span>
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                      <MapPin className="w-3.5 h-3.5 shrink-0" />
                       <span className="truncate">{appt.location}</span>
                     </span>
                   </div>
@@ -129,7 +138,7 @@ function PrescriptionsTab() {
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
+                    <div className="shrink-0 w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
                       <FileText className="w-6 h-6 text-accent" />
                     </div>
                     <div>
@@ -274,7 +283,7 @@ function LabTab() {
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <div className="shrink-0 w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                       <FlaskConical className="w-6 h-6 text-primary" />
                     </div>
 
@@ -485,7 +494,7 @@ export function MiSaludPage() {
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label} className="border-border shadow-none">
             <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
-              <Icon className={cn('w-5 h-5 sm:w-7 sm:h-7 flex-shrink-0', color)} />
+              <Icon className={cn('w-5 h-5 sm:w-7 sm:h-7 shrink-0', color)} />
               <div className="min-w-0">
                 <p className="text-xl sm:text-2xl font-bold text-foreground">{value}</p>
                 <p className="text-xs text-muted-foreground line-clamp-2 sm:line-clamp-none">{label}</p>
@@ -505,7 +514,7 @@ export function MiSaludPage() {
               activeTab === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            <Icon className="w-4 h-4 flex-shrink-0" />
+            <Icon className="w-4 h-4 shrink-0" />
             <span className="hidden xs:inline">{label}</span>
           </button>
         ))}

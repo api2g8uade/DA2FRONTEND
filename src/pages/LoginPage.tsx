@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link, Navigate } from 'react-router-dom'
-import { Activity, Eye, EyeOff, Lock, User } from 'lucide-react'
+import { Activity, Eye, EyeOff, Lock, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useAuth } from '@/src/context/AuthContext'
@@ -8,27 +8,47 @@ import { useAuth } from '@/src/context/AuthContext'
 export function LoginPage() {
   const navigate = useNavigate()
   const { user, login, loginDemo } = useAuth()
-  const [dni, setDni] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [demoLoading, setDemoLoading] = useState(false)
   const [error, setError] = useState('')
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+
     setError('')
+
+    const cleanEmail = email.trim().toLowerCase()
+
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setError('Ingresá un email válido.')
+      return
+    }
+
+    if (!password.trim()) {
+      setError('Ingresá tu contraseña.')
+      return
+    }
+
     setLoading(true)
-    const result = await login(dni, password)
+    const result = await login(cleanEmail, password)
     setLoading(false)
+
     if (!result.ok) {
       setError(result.message)
       return
     }
+
     navigate('/mi-salud')
   }
 
   const handleDemo = async () => {
+    setError('')
+    setDemoLoading(true)
     await loginDemo()
+    setDemoLoading(false)
     navigate('/mi-salud')
   }
 
@@ -56,8 +76,6 @@ export function LoginPage() {
             {[
               { value: '48k+', label: 'Pacientes activos' },
               { value: '320+', label: 'Profesionales' },
-              { value: '99.9%', label: 'Disponibilidad' },
-              { value: 'ISO 27001', label: 'Certificación' },
             ].map(({ value, label }) => (
               <div key={label} className="bg-sidebar-accent rounded-xl p-4">
                 <p className="font-serif text-xl font-bold text-sidebar-foreground">{value}</p>
@@ -67,7 +85,9 @@ export function LoginPage() {
           </div>
         </div>
 
-        <p className="text-xs text-sidebar-foreground/30">© 2026 Health Grid · HIPAA Compliant · Ley 25.326</p>
+        <p className="text-xs text-sidebar-foreground/30">
+          © 2026 Health Grid · HIPAA Compliant · Ley 25.326
+        </p>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
@@ -82,27 +102,29 @@ export function LoginPage() {
           <CardContent className="p-8">
             <div className="mb-8">
               <h1 className="font-serif text-2xl font-bold text-foreground">Iniciar sesión</h1>
-              <p className="text-muted-foreground text-sm mt-1">Accedé al Portal del Paciente con tu DNI.</p>
+              <p className="text-muted-foreground text-sm mt-1">
+                Accedé al Portal del Paciente con tu email.
+              </p>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-5">
               <div>
                 <label
-                  htmlFor="dni"
+                  htmlFor="email"
                   className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block"
                 >
-                  DNI / CUIL
+                  Email
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
-                    id="dni"
-                    type="text"
+                    id="email"
+                    type="email"
                     className="w-full border border-input rounded-lg pl-10 pr-4 py-3 text-sm bg-background text-foreground outline-none focus:border-primary transition-colors"
-                    placeholder="28345671"
-                    value={dni}
-                    onChange={(e) => setDni(e.target.value.replace(/\D/g, ''))}
-                    autoComplete="username"
+                    placeholder="paciente@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
                   />
                 </div>
               </div>
@@ -141,7 +163,7 @@ export function LoginPage() {
               <Button
                 type="submit"
                 className="w-full h-12 bg-primary text-primary-foreground hover:bg-secondary font-semibold text-sm"
-                disabled={loading}
+                disabled={loading || demoLoading}
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
@@ -163,7 +185,10 @@ export function LoginPage() {
             <div className="mt-6 pt-6 border-t border-border">
               <p className="text-xs text-muted-foreground text-center">
                 ¿Primera vez?{' '}
-                <Link to="/register" className="text-accent hover:underline">Creá tu cuenta acá</Link>.
+                <Link to="/register" className="text-accent hover:underline">
+                  Creá tu cuenta acá
+                </Link>
+                .
               </p>
             </div>
           </CardContent>
@@ -176,12 +201,12 @@ export function LoginPage() {
             size="sm"
             className="border-border text-muted-foreground hover:text-foreground text-xs"
             onClick={handleDemo}
+            disabled={loading || demoLoading}
           >
-            Entrar como paciente de prueba
+            {demoLoading ? 'Ingresando demo...' : 'Entrar como paciente de prueba'}
           </Button>
         </div>
       </div>
     </div>
   )
 }
-

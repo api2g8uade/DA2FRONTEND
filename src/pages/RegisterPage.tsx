@@ -91,8 +91,6 @@ export function RegisterPage() {
             {[
               { value: '48k+', label: 'Pacientes activos' },
               { value: '320+', label: 'Profesionales' },
-              { value: '99.9%', label: 'Disponibilidad' },
-              { value: 'ISO 27001', label: 'Certificación' },
             ].map(({ value, label }) => (
               <div key={label} className="bg-sidebar-accent rounded-xl p-4">
                 <p className="font-serif text-xl font-bold text-sidebar-foreground">{value}</p>

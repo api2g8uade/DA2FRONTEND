@@ -19,6 +19,12 @@ import { useAuth } from "@/src/context/AuthContext"
 
 const navItems = [
   {
+    href: "/notificaciones",
+    label: "Notificaciones",
+    icon: Bell,
+    description: "Avisos, turnos y novedades",
+  },
+  {
     href: "/mi-salud",
     label: "Mi Salud",
     icon: Heart,
@@ -40,7 +46,7 @@ const navItems = [
     href: "/perfil",
     label: "Perfil",
     icon: User,
-    description: "Datos y notificaciones",
+    description: "Datos personales y seguridad",
   },
 ]
 
@@ -120,7 +126,7 @@ export function Sidebar() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">{label}</span>
-                  {label === "Perfil" && unreadCount > 0 && (
+                  {label === "Notificaciones" && unreadCount > 0 && (
                     <Badge
                       className={cn(
                         "text-xs h-5 min-w-5 flex items-center justify-center",
@@ -148,23 +154,6 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Notifications quick access */}
-      <div className="px-3 pb-2">
-        <NavLink
-          to="/perfil?tab=notificaciones"
-          onClick={() => setMobileOpen(false)}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-        >
-          <Bell className="w-5 h-5" />
-          <span className="text-sm">Notificaciones</span>
-          {unreadCount > 0 && (
-            <Badge className="ml-auto bg-accent text-accent-foreground text-xs h-5 min-w-5 flex items-center justify-center">
-              {unreadCount}
-            </Badge>
-          )}
-        </NavLink>
-      </div>
-
       {/* Footer */}
       <div className="px-3 py-4 border-t border-sidebar-border">
         <button
@@ -185,7 +174,7 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 min-h-screen bg-sidebar border-r border-sidebar-border flex-shrink-0">
+      <aside className="hidden lg:flex flex-col w-64 h-screen sticky top-0 bg-sidebar border-r border-sidebar-border flex-shrink-0 overflow-y-auto">
         <SidebarContent />
       </aside>
 

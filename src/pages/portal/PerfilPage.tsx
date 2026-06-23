@@ -1,8 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import {
   User,
-  Bell,
   Shield,
   FileText,
   Trash2,
@@ -18,9 +16,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/src/context/AuthContext'
-import { NotificationsTab, getUnreadNotificationsCount } from './NotificacionesTab'
 
-type Tab = 'perfil' | 'notificaciones' | 'seguridad'
+type Tab = 'perfil' | 'seguridad'
 
 type BackendProfile = {
   id?: string
@@ -32,11 +29,6 @@ type BackendProfile = {
   telefono?: string
   obraSocial?: string
   nroAfiliado?: string
-}
-
-function useQueryParam(name: string) {
-  const { search } = useLocation()
-  return useMemo(() => new URLSearchParams(search).get(name), [name, search])
 }
 
 function ProfileTab() {
@@ -344,18 +336,11 @@ function SecurityTab() {
 
 const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'perfil', label: 'Mis datos', icon: User },
-  { id: 'notificaciones', label: 'Notificaciones', icon: Bell },
   { id: 'seguridad', label: 'Seguridad', icon: Shield },
 ]
 
 export function PerfilPage() {
-  const tabFromQuery = useQueryParam('tab')
   const [activeTab, setActiveTab] = useState<Tab>('perfil')
-  const unread = getUnreadNotificationsCount()
-
-  useEffect(() => {
-    if (tabFromQuery === 'notificaciones') setActiveTab('notificaciones')
-  }, [tabFromQuery])
 
   return (
     <div>
@@ -363,9 +348,9 @@ export function PerfilPage() {
         <p className="text-xs sm:text-sm text-muted-foreground font-medium uppercase tracking-wider mb-1">
           Portal del Paciente
         </p>
-        <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground text-balance">Perfil y Notificaciones</h1>
+        <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground text-balance">Perfil y Seguridad</h1>
         <p className="text-sm sm:text-base text-muted-foreground mt-1">
-          Gestioná tus datos personales, alertas y configuración de seguridad.
+          Gestioná tus datos personales y configuración de seguridad.
         </p>
       </div>
 
@@ -381,13 +366,11 @@ export function PerfilPage() {
           >
             <Icon className="w-4 h-4 flex-shrink-0" />
             <span className="hidden xs:inline">{label}</span>
-            {id === 'notificaciones' && unread > 0 && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-accent" />}
           </button>
         ))}
       </div>
 
       {activeTab === 'perfil' && <ProfileTab />}
-      {activeTab === 'notificaciones' && <NotificationsTab />}
       {activeTab === 'seguridad' && <SecurityTab />}
     </div>
   )
