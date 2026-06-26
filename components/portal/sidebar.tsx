@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { NavLink, useLocation, useNavigate } from "react-router-dom"
 import {
   Heart,
@@ -13,9 +13,10 @@ import {
   LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { currentPatient, notifications } from "@/lib/mock-data"
+import { currentPatient } from "@/lib/mock-data"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/src/context/AuthContext"
+import { apiUrl } from "@/lib/api"
 
 const navItems = [
   {
@@ -55,7 +56,22 @@ export function Sidebar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
-  const unreadCount = notifications.filter((n) => !n.read).length
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    if (!user?.token) return
+
+    fetch(apiUrl('/api/perfil/notificaciones'), {
+      headers: { Authorization: `Bearer ${user.token}` },
+    })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setUnreadCount(data.filter((n: any) => !n.read).length)
+        }
+      })
+      .catch(() => {})
+  }, [user?.token, pathname])
 
   const displayName =
     user && (user.nombre || user.apellido)
