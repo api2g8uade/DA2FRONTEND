@@ -21,6 +21,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useAuth } from '@/src/context/AuthContext'
+import { API_BASE_URL } from '@/lib/api'
+import { io } from 'socket.io-client'
 
 type Tab = 'turnos' | 'recetas' | 'laboratorio'
 
@@ -38,70 +40,122 @@ function formatDate(dateStr: string) {
     year: 'numeric',
   })
 }
+function isUpcoming(dateStr: string) {
+  if (!dateStr) return false
+  const todayStr = new Date().toISOString().slice(0, 10) // 'YYYY-MM-DD'
+  return dateStr.slice(0, 10) >= todayStr
+}
 
-
-
-function AppointmentsTab({ appointments }: { appointments: UpcomingAppointment[] }) {
+function AppointmentsTab({
+  upcoming,
+  past,
+}: {
+  upcoming: UpcomingAppointment[]
+  past: UpcomingAppointment[]
+}) {
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h2 className="font-serif text-lg sm:text-xl font-bold text-foreground">Turnos Próximos</h2>
-<Button
-  asChild
-  size="sm"
-  className="bg-primary text-primary-foreground hover:bg-secondary w-full sm:w-auto"
->
-  <a href="https://turnos.solefrancisco.com">
-    + Solicitar turno
-  </a>
-</Button>
-      </div>
-      {appointments.map((appt) => (
-        <Card key={appt.id} className="border-border shadow-none">
-          <CardContent className="p-4 sm:p-5">
-            <div className="flex flex-col gap-3">
-              <div className="flex gap-3 sm:gap-4">
-                <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                  {appt.modality === 'virtual' ? (
-                    <Video className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-                  ) : (
-                    <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-foreground text-sm sm:text-base truncate">{appt.doctor}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground truncate">{appt.specialty}</p>
-                  <div className="flex flex-col gap-1.5 mt-2">
-                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Clock className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">
-                        {formatDate(appt.date)} · {appt.time} hs
-                      </span>
-                    </span>
-                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <MapPin className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">{appt.location}</span>
-                    </span>
+    <div className="space-y-6">
+      {/* Turnos Próximos */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <h2 className="font-serif text-lg sm:text-xl font-bold text-foreground">Turnos Próximos</h2>
+          <Button
+            asChild
+            size="sm"
+            className="bg-primary text-primary-foreground hover:bg-secondary w-full sm:w-auto"
+          >
+            <a href="https://turnos.solefrancisco.com">
+              + Solicitar turno
+            </a>
+          </Button>
+        </div>
+        {upcoming.length === 0 ? (
+          <Card className="border-border shadow-none">
+            <CardContent className="p-6 text-center text-muted-foreground">
+              No tenés turnos programados.
+            </CardContent>
+          </Card>
+        ) : (
+          upcoming.map((appt) => (
+            <Card key={appt.id} className="border-border shadow-none">
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-3 sm:gap-4">
+                    <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                      {appt.modality === 'virtual' ? (
+                        <Video className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                      ) : (
+                        <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-foreground text-sm sm:text-base truncate">{appt.doctor}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground truncate">{appt.specialty}</p>
+                      <div className="flex flex-col gap-1.5 mt-2">
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Clock className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">
+                            {formatDate(appt.date)} · {appt.time} hs
+                          </span>
+                        </span>
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <MapPin className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{appt.location}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <Badge
+                      className={cn(
+                        'text-xs capitalize',
+                        appt.status === 'confirmado' || appt.status === 'APROBADO'
+                          ? 'bg-primary/10 text-primary border-primary/20'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                      )}
+                      variant="outline"
+                    >
+                      {appt.status}
+                    </Badge>
                   </div>
                 </div>
-              </div>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                <Badge
-                  className={cn(
-                    'text-xs capitalize',
-                    appt.status === 'confirmado'
-                      ? 'bg-primary/10 text-primary border-primary/20'
-                      : 'bg-amber-50 text-amber-700 border-amber-200'
-                  )}
-                  variant="outline"
-                >
-                  {appt.status}
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* Historial de Turnos Pasados */}
+      {past.length > 0 && (
+        <div className="space-y-4 pt-4 border-t border-border">
+          <h2 className="font-serif text-lg font-bold text-foreground">Historial de Turnos Pasados</h2>
+          <div className="space-y-3 opacity-75">
+            {past.map((appt) => (
+              <Card key={appt.id} className="border-border bg-muted/30 shadow-none">
+                <CardContent className="p-4 sm:p-4">
+                  <div className="flex gap-3 sm:gap-4">
+                    <div className="shrink-0 w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <p className="font-semibold text-foreground text-sm truncate">{appt.doctor}</p>
+                        <Badge variant="outline" className="text-xs bg-muted text-muted-foreground border-border capitalize">
+                          {appt.status}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{appt.specialty}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Realizado el {formatDate(appt.date)} a las {appt.time} hs
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -113,6 +167,14 @@ function PrescriptionsTab() {
   useEffect(() => {
     refreshRecipes()
   }, [refreshRecipes])
+
+  const vigentes = useMemo(() => {
+    return recipes.filter(r => r.estado === 'VIGENTE' || r.estado === 'Activa')
+  }, [recipes])
+
+  const pasadas = useMemo(() => {
+    return recipes.filter(r => r.estado !== 'VIGENTE' && r.estado !== 'Activa')
+  }, [recipes])
 
   if (loading) {
     return <div className="text-center text-muted-foreground">Cargando recetas...</div>
@@ -126,124 +188,128 @@ function PrescriptionsTab() {
     return <div className="text-center text-muted-foreground">No hay recetas disponibles</div>
   }
 
-  return (
-    <div className="space-y-4">
-      <h2 className="font-serif text-xl font-bold text-foreground">Historial de Recetas</h2>
-      {recipes.map((rec) => {
-        const recId = rec.id_receta?.toString() || rec._id || 'Desconocido'
-        const isOpen = expandedId === recId
-        return (
-          <Card key={recId} className="border-border shadow-none overflow-hidden">
-            <button
-              className="w-full text-left"
-              onClick={() => setExpandedId(isOpen ? null : recId)}
-              aria-expanded={isOpen}
-            >
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between">
-                  <div className="flex gap-4">
-                    <div className="shrink-0 w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                      <FileText className="w-6 h-6 text-accent" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground">Receta {recId.slice(-6)}</p>
-                      {rec.medicoId && <p className="text-sm text-muted-foreground">{rec.medicoId}</p>}
-                      {rec.fechaEmision && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Emitida el {rec.fechaEmision.split('T')[0].split('-').reverse().join('/')}
-                        </p>
-                      )}
-                      {rec.id_evolucion && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Evolución asociada: {rec.id_evolucion}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        'text-xs',
-                        (rec.estado === 'VIGENTE' || rec.estado === 'Activa')
-                          ? 'bg-primary/10 text-primary border-primary/20'
-                          : 'bg-muted text-muted-foreground'
-                      )}
-                    >
-                      {rec.estado}
-                    </Badge>
-                    {isOpen ? (
-                      <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </button>
-            {isOpen && (
-              <div className="px-5 pb-5 border-t border-border">
-                <div className="pt-4 space-y-3">
-                  <div className="bg-muted rounded-lg p-3">
-                    <p className="text-sm font-semibold text-foreground">{rec.medicamento}</p>
-                    {rec.dosis && <p className="text-xs text-muted-foreground mt-0.5">Dosis: {rec.dosis}</p>}
-                    <p className="text-xs text-muted-foreground mt-1">Indicaciones: {rec.indicaciones}</p>
-                  </div>
+  const renderRecipeCard = (rec: any) => {
+    const recId = rec.id_receta?.toString() || rec._id || 'Desconocido'
+    const isOpen = expandedId === recId
+    const isVigente = rec.estado === 'VIGENTE' || rec.estado === 'Activa'
 
-                  {rec.alertas_farmacologicas && rec.alertas_farmacologicas.length > 0 && (
-                    <div className="mt-4">
-                      <h4 className="text-xs font-semibold text-destructive uppercase tracking-wider mb-2">
-                        Alertas Farmacológicas
-                      </h4>
-                      {rec.alertas_farmacologicas.map((alerta: any, idx: number) => (
-                        <div key={idx} className="bg-destructive/10 text-destructive text-sm p-3 rounded-md mb-2">
-                          <p className="font-semibold">{alerta.tipo}</p>
-                          <p>{alerta.descripcion}</p>
-                        </div>
-                      ))}
-                    </div>
+    return (
+      <Card key={recId} className={cn("border-border shadow-none overflow-hidden", !isVigente && "opacity-75 bg-muted/10")}>
+        <button
+          className="w-full text-left"
+          onClick={() => setExpandedId(isOpen ? null : recId)}
+          aria-expanded={isOpen}
+        >
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex gap-4">
+                <div className={cn("shrink-0 w-12 h-12 rounded-xl flex items-center justify-center", isVigente ? "bg-accent/10" : "bg-muted")}>
+                  <FileText className={cn("w-6 h-6", isVigente ? "text-accent" : "text-muted-foreground")} />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">Receta {recId.slice(-6)}</p>
+                  {rec.medicoId && <p className="text-sm text-muted-foreground">{rec.medicoId}</p>}
+                  {rec.fechaEmision && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Emitida el {rec.fechaEmision.split('T')[0].split('-').reverse().join('/')}
+                    </p>
                   )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2 border-border text-foreground hover:bg-muted"
-                  >
-                    <Download className="w-3.5 h-3.5 mr-2" />
-                    Descargar PDF
-                  </Button>
+                  {rec.id_evolucion && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Evolución asociada: {rec.id_evolucion}
+                    </p>
+                  )}
                 </div>
               </div>
-            )}
+              <div className="flex items-center gap-3">
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'text-xs',
+                    isVigente
+                      ? 'bg-primary/10 text-primary border-primary/20'
+                      : 'bg-muted text-muted-foreground'
+                  )}
+                >
+                  {rec.estado}
+                </Badge>
+                {isOpen ? (
+                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </button>
+        {isOpen && (
+          <div className="px-5 pb-5 border-t border-border">
+            <div className="pt-4 space-y-3">
+              <div className="bg-muted rounded-lg p-3">
+                <p className="text-sm font-semibold text-foreground">{rec.medicamento}</p>
+                {rec.dosis && <p className="text-xs text-muted-foreground mt-0.5">Dosis: {rec.dosis}</p>}
+                <p className="text-xs text-muted-foreground mt-1">Indicaciones: {rec.indicaciones}</p>
+              </div>
+
+              {rec.alertas_farmacologicas && rec.alertas_farmacologicas.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-xs font-semibold text-destructive uppercase tracking-wider mb-2">
+                    Alertas Farmacológicas
+                  </h4>
+                  {rec.alertas_farmacologicas.map((alerta: any, idx: number) => (
+                    <div key={idx} className="bg-destructive/10 text-destructive text-sm p-3 rounded-md mb-2">
+                      <p className="font-semibold">{alerta.tipo}</p>
+                      <p>{alerta.descripcion}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2 border-border text-foreground hover:bg-muted"
+              >
+                <Download className="w-3.5 h-3.5 mr-2" />
+                Descargar PDF
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Recetas Vigentes */}
+      <div className="space-y-4">
+        <h2 className="font-serif text-lg sm:text-xl font-bold text-foreground">Recetas Vigentes</h2>
+        {vigentes.length === 0 ? (
+          <Card className="border-border shadow-none">
+            <CardContent className="p-6 text-center text-muted-foreground">
+              No tenés recetas vigentes.
+            </CardContent>
           </Card>
-        )
-      })}
+        ) : (
+          vigentes.map(renderRecipeCard)
+        )}
+      </div>
+
+      {/* Historial de Recetas */}
+      {pasadas.length > 0 && (
+        <div className="space-y-4 pt-4 border-t border-border">
+          <h2 className="font-serif text-lg font-bold text-foreground">Historial de Recetas</h2>
+          <div className="space-y-3">
+            {pasadas.map(renderRecipeCard)}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function LabTab() {
+function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLab: () => void }) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [labResults, setLabResults] = useState<LabResult[]>([])
-
-  const { user } = useAuth()
-
-  useEffect(() => {
-    if (!user?.token) return
-
-    async function loadLabResults() {
-      try {
-        const data = await fetchLabResults(user!.token!)
-
-        setLabResults(data)
-
-        console.log('Lab results:', data)
-      } catch (error) {
-        console.error('Error cargando laboratorio:', error)
-      }
-    }
-
-    loadLabResults()
-  }, [user])
 
   return (
     <div className="space-y-4">
@@ -256,7 +322,7 @@ function LabTab() {
           variant="outline"
           size="sm"
           className="border-border text-foreground hover:bg-muted text-xs"
-          onClick={() => window.location.reload()}
+          onClick={refreshLab}
         >
           <RefreshCw className="w-3.5 h-3.5 mr-2" />
           Actualizar
@@ -272,16 +338,17 @@ function LabTab() {
       )}
 
       {labResults.map((lab) => {
-        const isOpen = expandedId === lab._id
+        const labId = lab.id?.toString() || lab._id
+        const isOpen = expandedId === labId
 
         return (
           <Card
-            key={lab._id}
+            key={labId}
             className="border border-border shadow-none overflow-hidden"
           >
             <button
               className="w-full text-left"
-              onClick={() => setExpandedId(isOpen ? null : lab._id)}
+              onClick={() => setExpandedId(isOpen ? null : labId)}
               aria-expanded={isOpen}
             >
               <CardContent className="p-5">
@@ -341,7 +408,7 @@ function LabTab() {
                       </thead>
 
                       <tbody>
-                        {lab.resultados.map((r, i) => (
+                        {lab.resultados?.map((r, i) => (
                           <tr
                             key={i}
                             className="border-b border-border/50 last:border-0"
@@ -382,7 +449,7 @@ function LabTab() {
                     </table>
                   </div>
 
-                  {lab.resultados.some(r => r.observacionTecnica) && (
+                  {lab.resultados?.some(r => r.observacionTecnica) && (
                     <div className="mt-4 rounded-lg bg-muted p-3">
                       <p className="text-xs font-semibold text-muted-foreground mb-1">
                         Observaciones
@@ -431,39 +498,104 @@ export function MiSaludPage() {
   const [loadingAppointments, setLoadingAppointments] = useState(true)
   const [appointmentsError, setAppointmentsError] = useState<string | null>(null)
 
-  useEffect(() => {
-    refreshRecipes()
-  }, [refreshRecipes])
+  const [labResults, setLabResults] = useState<LabResult[]>([])
+  const [loadingLab, setLoadingLab] = useState(true)
+  const [labError, setLabError] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function loadAppointments() {
-      if (!user?.token) return
-      try {
-        setLoadingAppointments(true)
-        setAppointmentsError(null)
-        const data = await fetchAppointments(user.token)
-        setAppointments(data)
-      } catch (err: any) {
-        console.error('Error fetching appointments:', err)
-        setAppointmentsError('No se pudieron cargar los turnos.')
-      } finally {
-        setLoadingAppointments(false)
-      }
+  const refreshAllData = useCallback(async () => {
+    if (!user?.token) return
+    
+    // Cargar turnos
+    try {
+      setLoadingAppointments(true)
+      setAppointmentsError(null)
+      const data = await fetchAppointments(user.token)
+      setAppointments(data)
+    } catch (err: any) {
+      console.error('Error fetching appointments:', err)
+      setAppointmentsError('No se pudieron cargar los turnos.')
+    } finally {
+      setLoadingAppointments(false)
     }
-    loadAppointments()
-  }, [user])
 
-  const upcomingAppointmentsWithVirtualMeetings = useMemo(() => {
-    return [...appointments].sort((a, b) => {
+    // Cargar laboratorios
+    try {
+      setLoadingLab(true)
+      setLabError(null)
+      const data = await fetchLabResults(user.token)
+      setLabResults(data)
+    } catch (err: any) {
+      console.error('Error fetching lab results:', err)
+      setLabError('No se pudieron cargar los laboratorios.')
+    } finally {
+      setLoadingLab(false)
+    }
+
+    // Recetas
+    refreshRecipes()
+  }, [user, refreshRecipes])
+
+  useEffect(() => {
+    refreshAllData()
+  }, [refreshAllData])
+
+  // Escuchar notificaciones vía WebSockets para sincronizar en tiempo real
+  useEffect(() => {
+    if (!user?.id) return
+
+    console.log('[mi-salud] Conectando WebSocket silencioso para recargas en tiempo real...')
+    const socket = io(API_BASE_URL, {
+      transports: ['websocket', 'polling']
+    })
+
+    socket.emit('subscribe_notifications', user.id)
+
+    socket.on('nueva_notificacion', (notif: any) => {
+      console.log('[mi-salud] Notificación recibida en tiempo real:', notif)
+      // Recargar datos silenciosamente
+      fetchAppointments(user.token).then(setAppointments).catch(() => {})
+      fetchLabResults(user.token).then(setLabResults).catch(() => {})
+      refreshRecipes()
+    })
+
+    return () => {
+      socket.off('nueva_notificacion')
+      socket.disconnect()
+      console.log('[mi-salud] WebSocket de recarga en tiempo real desconectado.')
+    }
+  }, [user, refreshRecipes])
+
+  // Clasificar turnos
+  const { upcomingAppointments, pastAppointments } = useMemo(() => {
+    const upcoming: UpcomingAppointment[] = []
+    const past: UpcomingAppointment[] = []
+    
+    // Ordenar cronológicamente
+    const sorted = [...appointments].sort((a, b) => {
       const dateA = new Date(`${a.date}T${a.time}:00`).getTime()
       const dateB = new Date(`${b.date}T${b.time}:00`).getTime()
       return dateA - dateB
     })
+
+    for (const appt of sorted) {
+      if (isUpcoming(appt.date) && appt.status !== 'CANCELLED' && appt.status !== 'cancelado') {
+        upcoming.push(appt)
+      } else {
+        past.push(appt)
+      }
+    }
+    
+    // El historial queremos mostrarlo del más nuevo al más viejo
+    past.reverse()
+
+    return { upcomingAppointments: upcoming, pastAppointments: past }
   }, [appointments])
 
   const activeRecipesCount = useMemo(() => {
-    return recipes.filter((r) => r.estado === 'VIGENTE').length
+    return recipes.filter((r) => r.estado === 'VIGENTE' || r.estado === 'Activa').length
   }, [recipes])
+
+  const loading = loadingAppointments || loadingLab
 
   return (
     <div>
@@ -481,7 +613,7 @@ export function MiSaludPage() {
         {[
           {
             label: 'Turnos próximos',
-            value: upcomingAppointmentsWithVirtualMeetings.length,
+            value: upcomingAppointments.length,
             icon: Calendar,
             color: 'text-primary',
           },
@@ -491,7 +623,12 @@ export function MiSaludPage() {
             icon: FileText,
             color: 'text-accent',
           },
-          { label: 'Resultados', value: 0, icon: FlaskConical, color: 'text-primary' },
+          { 
+            label: 'Resultados de estudios', 
+            value: labResults.length, 
+            icon: FlaskConical, 
+            color: 'text-primary' 
+          },
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label} className="border-border shadow-none">
             <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
@@ -506,24 +643,46 @@ export function MiSaludPage() {
       </div>
 
       <div className="flex gap-1 p-1 bg-muted rounded-lg mb-6 w-full overflow-auto">
-        {tabs.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id)}
-            className={cn(
-              'flex-1 min-w-max sm:flex-auto flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-medium transition-colors',
-              activeTab === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <Icon className="w-4 h-4 shrink-0" />
-            <span className="hidden xs:inline">{label}</span>
-          </button>
-        ))}
+        {tabs.map(({ id, label, icon: Icon }) => {
+          const count = id === 'turnos'
+            ? upcomingAppointments.length
+            : (id === 'recetas'
+              ? activeRecipesCount
+              : labResults.length)
+          return (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={cn(
+                'flex-1 min-w-max sm:flex-auto flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-medium transition-colors',
+                activeTab === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Icon className="w-4 h-4 shrink-0" />
+              <span>{label}</span>
+              {count > 0 && (
+                <Badge className="ml-1 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full shrink-0">
+                  {count}
+                </Badge>
+              )}
+            </button>
+          )
+        })}
       </div>
 
-      {activeTab === 'turnos' && <AppointmentsTab appointments={upcomingAppointmentsWithVirtualMeetings} />}
-      {activeTab === 'recetas' && <PrescriptionsTab />}
-      {activeTab === 'laboratorio' && <LabTab />}
+      {loading && <div className="text-center text-muted-foreground py-8">Cargando datos médicos...</div>}
+      
+      {!loading && (
+        <>
+          {activeTab === 'turnos' && (
+            <AppointmentsTab upcoming={upcomingAppointments} past={pastAppointments} />
+          )}
+          {activeTab === 'recetas' && <PrescriptionsTab />}
+          {activeTab === 'laboratorio' && (
+            <LabTab labResults={labResults} refreshLab={refreshAllData} />
+          )}
+        </>
+      )}
     </div>
   )
 }
