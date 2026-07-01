@@ -57,6 +57,47 @@ export function NotificacionesPage() {
   const [items, setItems] = useState<BackendNotification[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [preferences, setPreferences] = useState({
+    turnos: true,
+    resultado: true,
+    receta: true,
+    pago: false,
+    sistema: false,
+  })
+
+  useEffect(() => {
+    if (!user?.token) return
+
+    fetch(apiUrl('/api/perfil/preferences'), {
+      headers: { Authorization: `Bearer ${user.token}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) setPreferences(data)
+      })
+      .catch(() => {})
+  }, [user?.token])
+
+  const togglePreference = async (key: keyof typeof preferences) => {
+    if (!user?.token) return
+    const nextVal = !preferences[key]
+    const updated = { ...preferences, [key]: nextVal }
+    setPreferences(updated)
+
+    try {
+      await fetch(apiUrl('/api/perfil/preferences'), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({ [key]: nextVal }),
+      })
+    } catch {
+      // Rollback on error
+      setPreferences(preferences)
+    }
+  }
 
   useEffect(() => {
     if (!user?.token) return
@@ -247,13 +288,13 @@ export function NotificacionesPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {[
-              { label: 'Recordatorios de turnos', description: '24 hs y 1 hora antes', enabled: true },
-              { label: 'Resultados de laboratorio', description: 'Cuando estén disponibles', enabled: true },
-              { label: 'Recetas y medicamentos', description: 'Vencimientos y renovaciones', enabled: true },
-              { label: 'Pagos y coseguros', description: 'Confirmaciones y vencimientos', enabled: false },
-              { label: 'Novedades del sistema', description: 'Actualizaciones y mantenimientos', enabled: false },
-            ].map(({ label, description, enabled: init }) => {
-              const [on, setOn] = useState(init)
+              { key: 'turnos' as const, label: 'Recordatorios de turnos', description: '24 hs y 1 hora antes' },
+              { key: 'resultado' as const, label: 'Resultados de laboratorio', description: 'Cuando estén disponibles' },
+              { key: 'receta' as const, label: 'Recetas y medicamentos', description: 'Vencimientos y renovaciones' },
+              { key: 'pago' as const, label: 'Pagos y coseguros', description: 'Confirmaciones y vencimientos' },
+              { key: 'sistema' as const, label: 'Novedades del sistema', description: 'Actualizaciones y mantenimientos' },
+            ].map(({ key, label, description }) => {
+              const on = preferences[key]
               return (
                 <div key={label} className="flex items-center justify-between py-1">
                   <div>
@@ -263,7 +304,7 @@ export function NotificacionesPage() {
                   <button
                     role="switch"
                     aria-checked={on}
-                    onClick={() => setOn(!on)}
+                    onClick={() => togglePreference(key)}
                     className={cn('relative w-10 h-6 rounded-full transition-colors flex-shrink-0', on ? 'bg-primary' : 'bg-muted')}
                   >
                     <span
