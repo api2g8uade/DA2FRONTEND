@@ -55,8 +55,7 @@ export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
-  const [unreadCount, setUnreadCount] = useState(0)
+  const { user, logout, unreadCount, setUnreadCount } = useAuth()
 
   useEffect(() => {
     if (!user?.token) return
@@ -71,7 +70,7 @@ export function Sidebar() {
         }
       })
       .catch(() => {})
-  }, [user?.token, pathname])
+  }, [user?.token, pathname, setUnreadCount])
 
   const displayName =
     user && (user.nombre || user.apellido)

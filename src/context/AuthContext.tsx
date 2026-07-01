@@ -5,6 +5,7 @@ import {
   useMemo,
   useSyncExternalStore,
   useEffect,
+  useState,
   type ReactNode,
 } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
@@ -225,6 +226,8 @@ function emitSession() {
 
 type AuthContextValue = {
   user: AuthUser | null
+  unreadCount: number
+  setUnreadCount: React.Dispatch<React.SetStateAction<number>>
   login: (email: string, password: string) => Promise<{ ok: true } | { ok: false; message: string }>
   register: (input: {
     nombre: string
@@ -247,6 +250,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => null
   )
 
+  const [unreadCount, setUnreadCount] = useState(0)
+
   useEffect(() => {
     if (!user || !user.id) return
 
@@ -262,6 +267,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     socket.on('nueva_notificacion', (notif: any) => {
       console.log('Notificación recibida en tiempo real:', notif)
+      
+      // Incrementar el contador de no leídos en tiempo real
+      setUnreadCount((prev) => prev + 1)
       
       // Mostrar toast interactivo con Sonner
       toast.info(notif.cuerpo || notif.message || 'Tenés una novedad', {
@@ -433,8 +441,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ user, login, register, loginDemo, logout, updateUser }),
-    [user, login, register, loginDemo, logout, updateUser]
+    () => ({ user, unreadCount, setUnreadCount, login, register, loginDemo, logout, updateUser }),
+    [user, unreadCount, login, register, loginDemo, logout, updateUser]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
