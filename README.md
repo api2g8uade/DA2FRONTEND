@@ -1,52 +1,61 @@
 # Health Grid — Portal del Paciente (Módulo 8 - Frontend)
 
-Este repositorio contiene la aplicación web del **Portal del Paciente** y la **Sala Virtual** del ecosistema **Health Grid**.
-Es una interfaz moderna, responsiva e interactiva diseñada para que los pacientes gestionen su salud de forma centralizada y segura.
+Este repositorio contiene la aplicación web del **Portal del Paciente** y la **Sala Virtual** del ecosistema **Health Grid**. Es una SPA (Single Page Application) moderna, responsiva e interactiva diseñada para que los pacientes gestionen su salud.
 
 ---
 
-## 🎯 Propósito del Proyecto y Necesidades que Resuelve
+## 🏗️ Descripción de la Arquitectura
 
-El Portal del Paciente actúa como el punto de contacto del paciente con el ecosistema médico de la institución.
-Resuelve la fragmentación de la información de salud al integrar los flujos de múltiples microservicios en una experiencia fluida.
+La aplicación está diseñada bajo principios de modularidad, desacoplamiento y tipado estricto:
 
-* **Acceso Unificado a la Información Médica:** Permite al paciente visualizar en un solo lugar su historial de recetas y órdenes de laboratorio e historial de turnos.
-* **Autonomía en la Gestión de Turnos:** Facilita la consulta de sus turnos programados (virtuales o presenciales) de manera ágil.
-* **Telemedicina Integrada (Sala Virtual):** Provee una videollamada integrada directamente en el navegador para consultas virtuales.
-* **Seguridad Farmacológica:** Alerta visualmente al paciente sobre contraindicaciones médicas críticas antes de que consuma un medicamento, basándose en la información de su Historia Clínica Electrónica.
-* **Transparencia en Pagos:** Permite ver y abonar coseguros.
-
----
-
-## 🛠️ Arquitectura del Frontend
-
-La aplicación está diseñada bajo principios de modularidad, tipado estricto y alto rendimiento visual:
-
-* **Framework y Herramientas:** Construido con **React 18**, **TypeScript** para un desarrollo seguro de tipos, y empaquetado ultra-rápido con **Vite**.
-* **Diseño y Estética Premium:** Implementa una interfaz interactiva con **Tailwind CSS**, tipografía moderna (Inter), micro-animaciones dinámicas y diseño adaptivo (móvil y escritorio) utilizando componentes reutilizables.
-* **Manejo de Estado Global (AuthContext):** Utiliza la API de Contexto de React (`AuthContext` y `useAuth`) para la gestión unificada de la sesión del usuario, sincronizando tokens JWT, datos de perfil del paciente, persistencia del estado en storage local y la inicialización de sockets de escucha para notificaciones.
-* **Integración API REST y WebSockets:** Consume los endpoints estructurados del Backend (`BACK/`) e inicializa canales en tiempo real mediante `Socket.io-client` para capturar eventos de actualizaciones médicas críticas.
-
-
-## 🧑‍💻 Guía de Evaluación y Demo (Usuario Demo)
-
-1. En la pantalla de login del portal, hacé clic en el botón **"Ingresar con usuario demo"**.
-2. Este botón iniciará sesión automáticamente con el paciente demo preestablecido (**María Elena González**).
-3. El frontend enviará los datos del paciente para validar sesión en el backend y generará tu entorno personalizado en tiempo real.
-4. Navegá por las secciones del menú lateral:
-   * **Mi Salud (Turnos):** Visualizarás citas médicas sincronizadas.
-   * **Mi Salud (Recetas):** Podrás revisar recetas activas y alertas críticas de alergias farmacológicas.
-   * **Mi Salud (Laboratorios):** Verás análisis clínicos (ej. Lipidograma) con formato de rangos óptimos.
-   * **Pagos Online:** Visualización y simulación de pago de coseguros.
-   * **Sala Virtual:** Simulación interactiva de videollamada para consultas programadas.
+*   **Tecnologías Principales:** React 19, TypeScript (para seguridad de tipos) y Vite 6 (empaquetador ultra rápido de desarrollo y producción).
+*   **Diseño y UI:** Tailwind CSS 4 para estilos utilitarios y componentes altamente responsivos e interactivos basados en Radix UI.
+*   **Manejo de Estado Global (AuthContext):** Utiliza React Context API (`AuthContext` y `useAuth`) para centralizar el ciclo de vida de la sesión del paciente (sincronización de tokens JWT, almacenamiento persistente en localStorage y la inicialización de la conexión de WebSockets para notificaciones).
+*   **Capa de Servicios y API:** Ubicada en `src/lib/api/` y `src/lib/api.ts`. Encapsula las llamadas HTTP a la API REST del Backend, enviando automáticamente el token de sesión (Bearer Token) en cada solicitud.
+*   **Notificaciones en Tiempo Real:** Implementado con `socket.io-client` para escuchar y reaccionar de manera inmediata a alertas médicas, recordatorios de turnos y resultados de laboratorio.
 
 ---
 
-## 📁 Estructura del Código Fuente
+## 🚀 Cómo Inicializar el Proyecto
 
-* `src/main.tsx` — Punto de entrada de la aplicación.
-* `src/App.tsx` — Definición de rutas y estructura de páginas (React Router Dom).
-* `src/context/AuthContext.tsx` — Proveedor y lógica de autenticación y sesión de usuario.
-* `src/pages/` — Vistas de la aplicación (Portal, Mi Salud, Sala Virtual, Pagos, etc.).
-* `components/` — Catálogo de componentes visuales interactivos y reutilizables.
-* `lib/api/` — Conectores HTTP para la comunicación con el Backend de la aplicación.
+Sigue estos pasos para instalar, configurar y ejecutar la aplicación en tu entorno local:
+
+### 1. Requisitos Previos
+*   **Node.js** v18 o superior (recomendado LTS).
+*   **NPM** instalado.
+
+### 2. Instalación de Dependencias
+Navegá a la carpeta del frontend y ejecutá:
+```bash
+cd FRONT
+npm install
+```
+
+### 3. Configuración del Entorno (`.env`)
+Creá un archivo `.env` en la raíz de la carpeta `FRONT/` para indicarle al frontend dónde se encuentra el servidor backend:
+```bash
+cp .env.example .env
+```
+Abrí el archivo `.env` y configurá la variable `VITE_API_BASE_URL` apuntando al backend (ya sea local o en la nube):
+*   **Desarrollo Local:**
+    ```env
+    VITE_API_BASE_URL=http://localhost:3000
+    ```
+*   **Producción (Nube):**
+    ```env
+    VITE_API_BASE_URL=https://health-grid-backend-7l67.onrender.com
+    ```
+
+### 4. Ejecución en Desarrollo
+Iniciá el servidor de desarrollo local de Vite:
+```bash
+npm run dev
+```
+La aplicación estará disponible para abrir en tu navegador en: [http://localhost:5173](http://localhost:5173)
+
+### 5. Compilación para Producción (Build)
+Para compilar la aplicación optimizada para producción:
+```bash
+npm run build
+```
+Los archivos optimizados y estáticos se generarán en la carpeta `dist/`, listos para ser desplegados en plataformas de hosting como Render o Vercel.
