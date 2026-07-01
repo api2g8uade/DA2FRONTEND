@@ -188,6 +188,7 @@ async function fetchBackendSession(input: {
         apellido: input.apellido,
         fechaNacimiento: input.fechaNacimiento,
         coreId: input.coreId,
+        password: input.password,
       }),
     })
 
