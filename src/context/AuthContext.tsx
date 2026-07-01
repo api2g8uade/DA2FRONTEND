@@ -253,20 +253,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
-    if (!user || !user.id) return
+    if (!user || !user.id) {
+      console.warn('[socket-client] No hay sesión de usuario activa o falta user.id para iniciar WebSockets.');
+      return;
+    }
 
-    // Conectar al socket del backend usando el base URL de la API
+    console.log(`[socket-client] Conectando a ${API_BASE_URL} para el usuario "${user.id}"...`);
     const socket = io(API_BASE_URL, {
       transports: ['websocket', 'polling']
     })
 
     socket.on('connect', () => {
-      console.log('Conectado a WebSockets del Backend')
+      console.log(`[socket-client] Conectado a WebSockets. Emitiendo 'subscribe_notifications' para: "${user.id}"`);
       socket.emit('subscribe_notifications', user.id)
     })
 
     socket.on('nueva_notificacion', (notif: any) => {
-      console.log('Notificación recibida en tiempo real:', notif)
+      console.log('[socket-client] Notificación recibida en tiempo real:', notif)
       
       // Incrementar el contador de no leídos en tiempo real
       setUnreadCount((prev) => prev + 1)
@@ -284,11 +287,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
     })
 
-    socket.on('disconnect', () => {
-      console.log('Desconectado de WebSockets')
+    socket.on('connect_error', (error) => {
+      console.error('[socket-client] Error de conexión WebSocket:', error);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log(`[socket-client] Desconectado de WebSockets. Motivo: ${reason}`);
     })
 
     return () => {
+      console.log('[socket-client] Desconectando socket por cambio de usuario o desmontaje.');
       socket.disconnect()
     }
   }, [user])
