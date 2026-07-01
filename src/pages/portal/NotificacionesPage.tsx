@@ -6,6 +6,8 @@ import {
   FileText,
   CreditCard,
   X,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -57,6 +59,8 @@ export function NotificacionesPage() {
   const [items, setItems] = useState<BackendNotification[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [subTab, setSubTab] = useState<'novedades' | 'historial'>('novedades')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [preferences, setPreferences] = useState({
     turnos: true,
     resultado: true,
@@ -170,7 +174,19 @@ export function NotificacionesPage() {
     } catch {}
   }
 
-  const unread = items.filter((n) => !n.read).length
+  const unreadList = useMemo(() => items.filter((n) => !n.read), [items])
+  const readList = useMemo(() => items.filter((n) => n.read), [items])
+  const unread = unreadList.length
+
+  const handleCardClick = (id: string, isRead: boolean) => {
+    const isCurrentlyExpanded = expandedId === id
+    setExpandedId(isCurrentlyExpanded ? null : id)
+    if (!isCurrentlyExpanded && !isRead) {
+      void markRead(id)
+    }
+  }
+
+  const listToShow = subTab === 'novedades' ? unreadList : readList
 
   return (
     <div>
@@ -185,12 +201,30 @@ export function NotificacionesPage() {
       </div>
 
       <div className="space-y-5">
+        {/* Sub Tabs and Mark all as read */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <h2 className="font-serif text-lg sm:text-xl font-bold text-foreground">Avisos Recientes</h2>
-            {unread > 0 && <Badge className="bg-accent text-accent-foreground text-xs">{unread} nuevas</Badge>}
+          <div className="flex gap-1 p-1 bg-muted rounded-lg max-w-xs w-full sm:w-auto">
+            <button
+              onClick={() => { setSubTab('novedades'); setExpandedId(null); }}
+              className={cn(
+                "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all text-center",
+                subTab === 'novedades' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Novedades {unread > 0 && `(${unread})`}
+            </button>
+            <button
+              onClick={() => { setSubTab('historial'); setExpandedId(null); }}
+              className={cn(
+                "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all text-center",
+                subTab === 'historial' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Historial
+            </button>
           </div>
-          {unread > 0 && (
+
+          {subTab === 'novedades' && unread > 0 && (
             <Button
               variant="outline"
               size="sm"
@@ -212,71 +246,88 @@ export function NotificacionesPage() {
           {loading && items.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">Cargando notificaciones...</p>
           ) : (
-            items.map((notif) => {
+            listToShow.map((notif) => {
               const Icon = notificationIconMap[notif.type] ?? Bell
               const colorClass = notificationColorMap[notif.type] ?? 'text-primary bg-primary/10'
+              const isOpen = expandedId === notif._id
+
               return (
                 <Card
                   key={notif._id}
                   className={cn(
-                    'border shadow-none transition-colors',
-                    notif.read ? 'border-border' : 'border-accent/30 bg-accent/5'
+                    'border shadow-none transition-all overflow-hidden',
+                    notif.read ? 'border-border opacity-75 bg-muted/5' : 'border-accent/30 bg-accent/5 font-medium'
                   )}
                 >
-                  <CardContent className="p-3 sm:p-4">
-                    <div className="flex gap-3 sm:gap-4">
-                      <div
-                        className={cn(
-                          'w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0',
-                          colorClass.split(' ').slice(1).join(' ')
-                        )}
-                      >
-                        <Icon className={cn('w-4 h-4 sm:w-5 sm:h-5', colorClass.split(' ')[0])} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
+                  <button
+                    className="w-full text-left"
+                    onClick={() => handleCardClick(notif._id, notif.read)}
+                    aria-expanded={isOpen}
+                  >
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="flex gap-3 sm:gap-4 items-center">
+                        <div
+                          className={cn(
+                            'w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0',
+                            colorClass.split(' ').slice(1).join(' ')
+                          )}
+                        >
+                          <Icon className={cn('w-4 h-4 sm:w-5 sm:h-5', colorClass.split(' ')[0])} />
+                        </div>
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                            <p className="text-sm font-semibold text-foreground">{notif.title}</p>
+                            <p className={cn("text-xs sm:text-sm font-semibold text-foreground truncate", !notif.read && "font-bold")}>
+                              {notif.title}
+                            </p>
                             {notif.urgent && (
-                              <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs" variant="outline">
+                              <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] px-1 py-0" variant="outline">
                                 Urgente
                               </Badge>
                             )}
-                            {!notif.read && <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />}
+                            {!notif.read && <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0 animate-pulse" />}
                           </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">{formatTime(notif.createdAt)}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
                           <button
-                            onClick={() => remove(notif._id)}
-                            className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void remove(notif._id);
+                            }}
+                            className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted"
                             aria-label="Eliminar notificación"
                           >
                             <X className="w-4 h-4" />
                           </button>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">{notif.message}</p>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-xs text-muted-foreground">{formatTime(notif.createdAt)}</span>
-                          {!notif.read && (
-                            <button
-                              onClick={() => markRead(notif._id)}
-                              className="text-xs text-accent hover:text-accent/80 font-medium"
-                            >
-                              Marcar como leída
-                            </button>
+                          {isOpen ? (
+                            <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-muted-foreground" />
                           )}
                         </div>
                       </div>
+                    </CardContent>
+                  </button>
+
+                  {isOpen && (
+                    <div className="px-4 pb-4 border-t border-border/50 bg-muted/10">
+                      <p className="text-sm text-foreground mt-3 leading-relaxed whitespace-pre-wrap">
+                        {notif.message}
+                      </p>
                     </div>
-                  </CardContent>
+                  )}
                 </Card>
               )
             })
           )}
 
-          {!loading && items.length === 0 && (
+          {!loading && listToShow.length === 0 && (
             <Card className="border-border shadow-none">
               <CardContent className="p-6 sm:p-12 flex flex-col items-center gap-3 text-center">
                 <Bell className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground">No tenés notificaciones.</p>
+                <p className="text-sm text-muted-foreground">
+                  {subTab === 'novedades' ? 'No tenés novedades pendientes.' : 'No tenés historial de notificaciones.'}
+                </p>
               </CardContent>
             </Card>
           )}

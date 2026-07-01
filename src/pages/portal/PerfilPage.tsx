@@ -34,12 +34,9 @@ type BackendProfile = {
 
 function ProfileTab() {
   const { user, updateUser } = useAuth()
-  const [editing, setEditing] = useState(false)
   const [profile, setProfile] = useState<BackendProfile | null>(null)
   const [loadingProfile, setLoadingProfile] = useState(false)
   const [profileError, setProfileError] = useState('')
-  const [savingProfile, setSavingProfile] = useState(false)
-  const [saveError, setSaveError] = useState('')
 
   // Nombre consolidado del auth o del mock
   const authenticatedName = profile
@@ -53,15 +50,6 @@ function ProfileTab() {
   const authenticatedPhone = profile?.telefono ?? user?.telefono ?? currentPatient.phone
   const authenticatedAffiliateNumber = profile?.nroAfiliado ?? user?.nroAfiliado ?? currentPatient.affiliateNumber
   const authenticatedFechaNacimiento = profile?.fechaNacimiento ?? user?.fechaNacimiento ?? currentPatient.dateOfBirth
-
-  const [form, setForm] = useState({
-    name: authenticatedName,
-    phone: authenticatedPhone,
-    email: authenticatedEmail,
-    obraSocial: authenticatedObraSocial,
-    nroAfiliado: authenticatedAffiliateNumber,
-    fechaNacimiento: authenticatedFechaNacimiento,
-  })
 
   useEffect(() => {
     if (!user?.token) {
@@ -105,78 +93,18 @@ function ProfileTab() {
     return () => controller.abort()
   }, [user?.token, updateUser])
 
-  // Sincronizar form si el usuario cambia (ej. al cargar)
-  useEffect(() => {
-    setForm({
-      name: authenticatedName,
-      phone: authenticatedPhone,
-      email: authenticatedEmail,
-      obraSocial: authenticatedObraSocial,
-      nroAfiliado: authenticatedAffiliateNumber,
-      fechaNacimiento: authenticatedFechaNacimiento,
-    })
-  }, [authenticatedName, authenticatedEmail, authenticatedPhone, authenticatedObraSocial, authenticatedAffiliateNumber, authenticatedFechaNacimiento])
-
   const fields = [
-    { label: 'Nombre completo', key: 'name' as const, editable: false },
-    { label: 'DNI', value: authenticatedDni, editable: false },
+    { label: 'Nombre completo', value: authenticatedName },
+    { label: 'DNI', value: authenticatedDni },
     {
       label: 'Fecha de nacimiento',
       value: new Date(authenticatedFechaNacimiento + 'T00:00:00').toLocaleDateString('es-AR'),
-      editable: false,
     },
-    { label: 'Teléfono', key: 'phone' as const, editable: true },
-    { label: 'Email', key: 'email' as const, editable: true },
-    { label: 'Obra Social', key: 'obraSocial' as const, editable: true },
-    { label: 'N° de afiliado', key: 'nroAfiliado' as const, editable: true },
+    { label: 'Teléfono', value: authenticatedPhone || 'No registrado' },
+    { label: 'Email', value: authenticatedEmail },
+    { label: 'Obra Social', value: authenticatedObraSocial },
+    { label: 'N° de afiliado', value: authenticatedAffiliateNumber || 'No registrado' },
   ]
-
-  const handleSave = async () => {
-    if (!user?.token) {
-      setSaveError('No hay token de sesion para actualizar el perfil.')
-      return
-    }
-
-    setSavingProfile(true)
-    setSaveError('')
-
-    try {
-      const response = await fetch(apiUrl('/api/perfil'), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.token}`,
-        },
-        body: JSON.stringify({
-          telefono: form.phone.trim(),
-          email: form.email.trim(),
-          obraSocial: form.obraSocial.trim(),
-          nroAfiliado: form.nroAfiliado.trim(),
-        }),
-      })
-
-      if (!response.ok) throw new Error('No se pudo actualizar el perfil.')
-
-      const updatedProfile = (await response.json()) as BackendProfile
-      setProfile(updatedProfile)
-      updateUser({
-        id: updatedProfile._id ?? updatedProfile.id,
-        dni: updatedProfile.dni,
-        email: updatedProfile.email,
-        nombre: updatedProfile.nombre,
-        apellido: updatedProfile.apellido,
-        telefono: updatedProfile.telefono,
-        obraSocial: updatedProfile.obraSocial,
-        nroAfiliado: updatedProfile.nroAfiliado,
-        fechaNacimiento: updatedProfile.fechaNacimiento,
-      })
-      setEditing(false)
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'No se pudo actualizar el perfil.')
-    } finally {
-      setSavingProfile(false)
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -193,24 +121,6 @@ function ProfileTab() {
           <p className="text-xs sm:text-sm text-muted-foreground truncate">{authenticatedObraSocial}</p>
           <p className="text-xs text-muted-foreground">ID: {user?.dni ? `PAT-${user.dni.slice(-5)}` : currentPatient.id}</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="border-border text-foreground hover:bg-muted w-full sm:w-auto flex-shrink-0"
-          onClick={() => setEditing(!editing)}
-        >
-          {editing ? (
-            <>
-              <X className="w-3.5 h-3.5 mr-1.5" />
-              Cancelar
-            </>
-          ) : (
-            <>
-              <Edit3 className="w-3.5 h-3.5 mr-1.5" />
-              Editar
-            </>
-          )}
-        </Button>
       </div>
 
       <Card className="border-border shadow-none">
@@ -220,39 +130,19 @@ function ProfileTab() {
         <CardContent className="divide-y divide-border">
           {loadingProfile && <p className="py-3 text-sm text-muted-foreground">Cargando perfil...</p>}
           {profileError && <p className="py-3 text-sm text-destructive">{profileError}</p>}
-          {saveError && <p className="py-3 text-sm text-destructive">{saveError}</p>}
           {fields.map((field) => (
             <div
               key={field.label}
               className="py-2.5 sm:py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4"
             >
               <span className="text-xs sm:text-sm text-muted-foreground flex-shrink-0">{field.label}</span>
-              {editing && 'key' in field && field.key && field.editable ? (
-                <input
-                  className="flex-1 border border-input rounded-lg px-3 py-2 sm:py-1.5 text-sm bg-background text-foreground outline-none focus:border-primary transition-colors text-left sm:text-right w-full"
-                  value={form[field.key]}
-                  onChange={(e) => setForm((f) => ({ ...f, [field.key]: e.target.value }))}
-                />
-              ) : (
-                <span className="text-sm font-medium text-foreground text-left sm:text-right">
-                  {'key' in field && field.key ? form[field.key] : (field as any).value}
-                </span>
-              )}
+              <span className="text-sm font-medium text-foreground text-left sm:text-right">
+                {field.value}
+              </span>
             </div>
           ))}
         </CardContent>
       </Card>
-
-      {editing && (
-        <Button
-          className="w-full bg-primary text-primary-foreground hover:bg-secondary"
-          onClick={handleSave}
-          disabled={savingProfile}
-        >
-          <Save className="w-4 h-4 mr-2" />
-          {savingProfile ? 'Guardando...' : 'Guardar cambios'}
-        </Button>
-      )}
     </div>
   )
 }

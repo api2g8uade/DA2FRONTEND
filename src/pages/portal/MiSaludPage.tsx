@@ -53,12 +53,134 @@ function AppointmentsTab({
   upcoming: UpcomingAppointment[]
   past: UpcomingAppointment[]
 }) {
+  const [subTab, setSubTab] = useState<'activos' | 'historial'>('activos')
+  const [expandedId, setExpandedId] = useState<number | string | null>(null)
+
+  const renderApptCard = (appt: UpcomingAppointment, isPast: boolean) => {
+    const isOpen = expandedId === appt.id
+    const isVirtual = appt.modality === 'virtual'
+
+    return (
+      <Card key={appt.id} className={cn("border-border shadow-none overflow-hidden transition-all", isPast && "bg-muted/10 opacity-75")}>
+        <button
+          className="w-full text-left"
+          onClick={() => setExpandedId(isOpen ? null : appt.id)}
+          aria-expanded={isOpen}
+        >
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex gap-3 sm:gap-4 flex-1 min-w-0">
+                <div className={cn(
+                  "shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center",
+                  isPast ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"
+                )}>
+                  {isVirtual ? (
+                    <Video className="w-5 h-5 sm:w-6 sm:h-6" />
+                  ) : (
+                    <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-foreground text-sm sm:text-base truncate">{appt.doctor}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground truncate">{appt.specialty}</p>
+                  <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                      {formatDate(appt.date)} · {appt.time} hs
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <Badge
+                  className={cn(
+                    'text-xs capitalize',
+                    isPast
+                      ? 'bg-muted text-muted-foreground border-border'
+                      : (appt.status === 'confirmado' || appt.status === 'APROBADO' || appt.status === 'CONFIRMADO'
+                        ? 'bg-primary/10 text-primary border-primary/20'
+                        : 'bg-amber-50 text-amber-700 border-amber-200')
+                  )}
+                  variant="outline"
+                >
+                  {appt.status}
+                </Badge>
+                {isOpen ? (
+                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </button>
+
+        {isOpen && (
+          <div className="px-5 pb-5 border-t border-border bg-muted/5">
+            <div className="pt-4 space-y-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-muted/30 p-4 rounded-xl">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Centro Médico</p>
+                  <p className="font-medium text-foreground mt-0.5">{appt.location || 'Consultorio Central'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Modalidad</p>
+                  <p className="font-medium text-foreground mt-0.5 capitalize">{appt.modality || 'Presencial'}</p>
+                </div>
+                {appt.ends_at && (
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hora de Finalización</p>
+                    <p className="font-medium text-foreground mt-0.5">{appt.ends_at.slice(11, 16)} hs</p>
+                  </div>
+                )}
+              </div>
+
+              {isVirtual && !isPast && (
+                <div className="pt-2">
+                  <Button
+                    asChild
+                    className="w-full sm:w-auto bg-primary hover:bg-secondary text-primary-foreground"
+                  >
+                    <a href={appt.linkVideollamada || "/sala-virtual"}>
+                      <Video className="w-4 h-4 mr-2" />
+                      Ingresar a Sala Virtual
+                    </a>
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Card>
+    )
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Turnos Próximos */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <h2 className="font-serif text-lg sm:text-xl font-bold text-foreground">Turnos Próximos</h2>
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
+        {/* Sub Tabs */}
+        <div className="flex gap-1 p-1 bg-muted rounded-lg max-w-xs w-full sm:w-auto">
+          <button
+            onClick={() => { setSubTab('activos'); setExpandedId(null); }}
+            className={cn(
+              "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all text-center",
+              subTab === 'activos' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Turnos Próximos
+          </button>
+          <button
+            onClick={() => { setSubTab('historial'); setExpandedId(null); }}
+            className={cn(
+              "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all text-center",
+              subTab === 'historial' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Historial
+          </button>
+        </div>
+
+        {subTab === 'activos' && (
           <Button
             asChild
             size="sm"
@@ -68,92 +190,32 @@ function AppointmentsTab({
               + Solicitar turno
             </a>
           </Button>
-        </div>
-        {upcoming.length === 0 ? (
-          <Card className="border-border shadow-none">
-            <CardContent className="p-6 text-center text-muted-foreground">
-              No tenés turnos programados.
-            </CardContent>
-          </Card>
-        ) : (
-          upcoming.map((appt) => (
-            <Card key={appt.id} className="border-border shadow-none">
-              <CardContent className="p-4 sm:p-5">
-                <div className="flex flex-col gap-3">
-                  <div className="flex gap-3 sm:gap-4">
-                    <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                      {appt.modality === 'virtual' ? (
-                        <Video className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-                      ) : (
-                        <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-foreground text-sm sm:text-base truncate">{appt.doctor}</p>
-                      <p className="text-xs sm:text-sm text-muted-foreground truncate">{appt.specialty}</p>
-                      <div className="flex flex-col gap-1.5 mt-2">
-                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Clock className="w-3.5 h-3.5 shrink-0" />
-                          <span className="truncate">
-                            {formatDate(appt.date)} · {appt.time} hs
-                          </span>
-                        </span>
-                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <MapPin className="w-3.5 h-3.5 shrink-0" />
-                          <span className="truncate">{appt.location}</span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                    <Badge
-                      className={cn(
-                        'text-xs capitalize',
-                        appt.status === 'confirmado' || appt.status === 'APROBADO'
-                          ? 'bg-primary/10 text-primary border-primary/20'
-                          : 'bg-amber-50 text-amber-700 border-amber-200'
-                      )}
-                      variant="outline"
-                    >
-                      {appt.status}
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
         )}
       </div>
 
-      {/* Historial de Turnos Pasados */}
-      {past.length > 0 && (
-        <div className="space-y-4 pt-4 border-t border-border">
-          <h2 className="font-serif text-lg font-bold text-foreground">Historial de Turnos Pasados</h2>
-          <div className="space-y-3 opacity-75">
-            {past.map((appt) => (
-              <Card key={appt.id} className="border-border bg-muted/30 shadow-none">
-                <CardContent className="p-4 sm:p-4">
-                  <div className="flex gap-3 sm:gap-4">
-                    <div className="shrink-0 w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
-                        <p className="font-semibold text-foreground text-sm truncate">{appt.doctor}</p>
-                        <Badge variant="outline" className="text-xs bg-muted text-muted-foreground border-border capitalize">
-                          {appt.status}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">{appt.specialty}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Realizado el {formatDate(appt.date)} a las {appt.time} hs
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+      {subTab === 'activos' ? (
+        <div className="space-y-3">
+          {upcoming.length === 0 ? (
+            <Card className="border-border shadow-none">
+              <CardContent className="p-6 text-center text-muted-foreground text-sm">
+                No tenés turnos programados.
+              </CardContent>
+            </Card>
+          ) : (
+            upcoming.map(appt => renderApptCard(appt, false))
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {past.length === 0 ? (
+            <Card className="border-border shadow-none">
+              <CardContent className="p-6 text-center text-muted-foreground text-sm">
+                No tenés turnos pasados.
+              </CardContent>
+            </Card>
+          ) : (
+            past.map(appt => renderApptCard(appt, true))
+          )}
         </div>
       )}
     </div>
@@ -161,6 +223,7 @@ function AppointmentsTab({
 }
 
 function PrescriptionsTab() {
+  const [subTab, setSubTab] = useState<'vigentes' | 'historial'>('vigentes')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const { recipes, loading, error, refreshRecipes } = useRecipes()
 
@@ -194,7 +257,7 @@ function PrescriptionsTab() {
     const isVigente = rec.estado === 'VIGENTE' || rec.estado === 'Activa'
 
     return (
-      <Card key={recId} className={cn("border-border shadow-none overflow-hidden", !isVigente && "opacity-75 bg-muted/10")}>
+      <Card key={recId} className={cn("border-border shadow-none overflow-hidden transition-all", !isVigente && "opacity-75 bg-muted/10")}>
         <button
           className="w-full text-left"
           onClick={() => setExpandedId(isOpen ? null : recId)}
@@ -243,7 +306,7 @@ function PrescriptionsTab() {
           </CardContent>
         </button>
         {isOpen && (
-          <div className="px-5 pb-5 border-t border-border">
+          <div className="px-5 pb-5 border-t border-border bg-muted/5">
             <div className="pt-4 space-y-3">
               <div className="bg-muted rounded-lg p-3">
                 <p className="text-sm font-semibold text-foreground">{rec.medicamento}</p>
@@ -280,28 +343,52 @@ function PrescriptionsTab() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Recetas Vigentes */}
-      <div className="space-y-4">
-        <h2 className="font-serif text-lg sm:text-xl font-bold text-foreground">Recetas Vigentes</h2>
-        {vigentes.length === 0 ? (
-          <Card className="border-border shadow-none">
-            <CardContent className="p-6 text-center text-muted-foreground">
-              No tenés recetas vigentes.
-            </CardContent>
-          </Card>
-        ) : (
-          vigentes.map(renderRecipeCard)
-        )}
+    <div className="space-y-4">
+      {/* Sub Tabs */}
+      <div className="flex gap-1 p-1 bg-muted rounded-lg max-w-xs w-full mb-2">
+        <button
+          onClick={() => { setSubTab('vigentes'); setExpandedId(null); }}
+          className={cn(
+            "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all text-center",
+            subTab === 'vigentes' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Recetas Vigentes
+        </button>
+        <button
+          onClick={() => { setSubTab('historial'); setExpandedId(null); }}
+          className={cn(
+            "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all text-center",
+            subTab === 'historial' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Historial
+        </button>
       </div>
 
-      {/* Historial de Recetas */}
-      {pasadas.length > 0 && (
-        <div className="space-y-4 pt-4 border-t border-border">
-          <h2 className="font-serif text-lg font-bold text-foreground">Historial de Recetas</h2>
-          <div className="space-y-3">
-            {pasadas.map(renderRecipeCard)}
-          </div>
+      {subTab === 'vigentes' ? (
+        <div className="space-y-3">
+          {vigentes.length === 0 ? (
+            <Card className="border-border shadow-none">
+              <CardContent className="p-6 text-center text-muted-foreground text-sm">
+                No tenés recetas vigentes.
+              </CardContent>
+            </Card>
+          ) : (
+            vigentes.map(renderRecipeCard)
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {pasadas.length === 0 ? (
+            <Card className="border-border shadow-none">
+              <CardContent className="p-6 text-center text-muted-foreground text-sm">
+                No tenés recetas archivadas o pasadas.
+              </CardContent>
+            </Card>
+          ) : (
+            pasadas.map(renderRecipeCard)
+          )}
         </div>
       )}
     </div>
@@ -309,19 +396,190 @@ function PrescriptionsTab() {
 }
 
 function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLab: () => void }) {
+  const [subTab, setSubTab] = useState<'ultimos' | 'historial'>('ultimos')
   const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  const ultimos = useMemo(() => {
+    const pending = labResults.filter(l => l.estado !== '3' && l.estado !== 'Finalizado')
+    const completed = labResults.filter(l => l.estado === '3' || l.estado === 'Finalizado')
+    return [...pending, ...completed.slice(0, 3)]
+  }, [labResults])
+
+  const renderLabCard = (lab: LabResult) => {
+    const labId = lab.id?.toString() || lab._id
+    const isOpen = expandedId === labId
+    const isPendiente = lab.estado !== '3' && lab.estado !== 'Finalizado'
+
+    return (
+      <Card
+        key={labId}
+        className={cn("border border-border shadow-none overflow-hidden transition-all", !isPendiente && "bg-muted/10 opacity-75")}
+      >
+        <button
+          className="w-full text-left"
+          onClick={() => setExpandedId(isOpen ? null : labId)}
+          aria-expanded={isOpen}
+        >
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex gap-4">
+                <div className={cn("shrink-0 w-12 h-12 rounded-xl flex items-center justify-center", isPendiente ? "bg-amber-100 text-amber-700 font-bold" : "bg-primary/10 text-primary")}>
+                  <FlaskConical className="w-6 h-6" />
+                </div>
+
+                <div>
+                  <p className="font-semibold text-foreground">
+                    {lab.estudiosSolicitados?.[0]?.nombre || 'Orden de Laboratorio'}
+                  </p>
+
+                  <p className="text-sm text-muted-foreground">
+                    Estado: {isPendiente ? 'Pendiente' : 'Finalizado'}
+                  </p>
+
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formatDate(lab.fechaSolicitud)}
+                  </p>
+                </div>
+              </div>
+
+              {isOpen ? (
+                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              )}
+            </div>
+          </CardContent>
+        </button>
+
+        {isOpen && (
+          <div className="px-5 pb-5 border-t border-border bg-muted/5">
+            <div className="pt-4">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left text-xs font-semibold text-muted-foreground pb-2 pr-4">
+                        Parámetro
+                      </th>
+
+                      <th className="text-right text-xs font-semibold text-muted-foreground pb-2 pr-4">
+                        Valor
+                      </th>
+
+                      <th className="text-right text-xs font-semibold text-muted-foreground pb-2 pr-4">
+                        Referencia
+                      </th>
+
+                      <th className="text-right text-xs font-semibold text-muted-foreground pb-2">
+                        Estado
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {lab.resultados?.map((r, i) => (
+                      <tr
+                        key={i}
+                        className="border-b border-border/50 last:border-0"
+                      >
+                        <td className="py-2.5 pr-4 text-foreground">
+                          {r.nombreAnalito}
+                        </td>
+
+                        <td className="py-2.5 pr-4 text-right font-mono font-semibold text-foreground">
+                          {r.valor}{' '}
+                          <span className="text-muted-foreground font-normal">
+                            {r.unidadMedida}
+                          </span>
+                        </td>
+
+                        <td className="py-2.5 pr-4 text-right text-muted-foreground">
+                          {r.rangosReferencia?.length > 0 
+                            ? `${r.rangosReferencia[0].valorMinimo} - ${r.rangosReferencia[0].valorMaximo}`
+                            : '-'}
+                        </td>
+
+                        <td className="py-2.5 text-right">
+                          {!r.fueraDeRango ? (
+                            <span className="flex items-center justify-end gap-1 text-primary text-xs">
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              Normal
+                            </span>
+                          ) : (
+                            <span className="flex items-center justify-end gap-1 text-amber-600 text-xs">
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              Fuera de rango
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {lab.resultados?.some(r => r.observacionTecnica) && (
+                <div className="mt-4 rounded-lg bg-muted p-3">
+                  <p className="text-xs font-semibold text-muted-foreground mb-1">
+                    Observaciones
+                  </p>
+
+                  <ul className="text-sm text-foreground list-disc list-inside">
+                    {lab.resultados
+                      .filter(r => r.observacionTecnica)
+                      .map((r, i) => (
+                        <li key={i}>{r.nombreAnalito}: {r.observacionTecnica}</li>
+                      ))}
+                  </ul>
+                </div>
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4 border-border text-foreground hover:bg-muted"
+              >
+                <Download className="w-3.5 h-3.5 mr-2" />
+                Descargar informe
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+    )
+  }
+
+  const listToShow = subTab === 'ultimos' ? ultimos : labResults
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-serif text-xl font-bold text-foreground">
-          Resultados de Laboratorio
-        </h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
+        {/* Sub Tabs */}
+        <div className="flex gap-1 p-1 bg-muted rounded-lg max-w-xs w-full sm:w-auto">
+          <button
+            onClick={() => { setSubTab('ultimos'); setExpandedId(null); }}
+            className={cn(
+              "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all text-center",
+              subTab === 'ultimos' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Últimos resultados
+          </button>
+          <button
+            onClick={() => { setSubTab('historial'); setExpandedId(null); }}
+            className={cn(
+              "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all text-center",
+              subTab === 'historial' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Historial
+          </button>
+        </div>
 
         <Button
           variant="outline"
           size="sm"
-          className="border-border text-foreground hover:bg-muted text-xs"
+          className="border-border text-foreground hover:bg-muted text-xs w-full sm:w-auto"
           onClick={refreshLab}
         >
           <RefreshCw className="w-3.5 h-3.5 mr-2" />
@@ -329,156 +587,17 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
         </Button>
       </div>
 
-      {labResults.length === 0 && (
-        <Card className="border border-border shadow-none">
-          <CardContent className="p-6 text-center text-muted-foreground">
-            No hay resultados de laboratorio disponibles.
-          </CardContent>
-        </Card>
-      )}
-
-      {labResults.map((lab) => {
-        const labId = lab.id?.toString() || lab._id
-        const isOpen = expandedId === labId
-
-        return (
-          <Card
-            key={labId}
-            className="border border-border shadow-none overflow-hidden"
-          >
-            <button
-              className="w-full text-left"
-              onClick={() => setExpandedId(isOpen ? null : labId)}
-              aria-expanded={isOpen}
-            >
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between">
-                  <div className="flex gap-4">
-                    <div className="shrink-0 w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <FlaskConical className="w-6 h-6 text-primary" />
-                    </div>
-
-                    <div>
-                      <p className="font-semibold text-foreground">
-                        {lab.estudiosSolicitados?.[0]?.nombre || 'Orden de Laboratorio'}
-                      </p>
-
-                      <p className="text-sm text-muted-foreground">
-                        Estado: {lab.estado === '3' ? 'Finalizado' : 'Pendiente'}
-                      </p>
-
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatDate(lab.fechaSolicitud)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {isOpen ? (
-                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                  )}
-                </div>
-              </CardContent>
-            </button>
-
-            {isOpen && (
-              <div className="px-5 pb-5 border-t border-border">
-                <div className="pt-4">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border">
-                          <th className="text-left text-xs font-semibold text-muted-foreground pb-2 pr-4">
-                            Parámetro
-                          </th>
-
-                          <th className="text-right text-xs font-semibold text-muted-foreground pb-2 pr-4">
-                            Valor
-                          </th>
-
-                          <th className="text-right text-xs font-semibold text-muted-foreground pb-2 pr-4">
-                            Referencia
-                          </th>
-
-                          <th className="text-right text-xs font-semibold text-muted-foreground pb-2">
-                            Estado
-                          </th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {lab.resultados?.map((r, i) => (
-                          <tr
-                            key={i}
-                            className="border-b border-border/50 last:border-0"
-                          >
-                            <td className="py-2.5 pr-4 text-foreground">
-                              {r.nombreAnalito}
-                            </td>
-
-                            <td className="py-2.5 pr-4 text-right font-mono font-semibold text-foreground">
-                              {r.valor}{' '}
-                              <span className="text-muted-foreground font-normal">
-                                {r.unidadMedida}
-                              </span>
-                            </td>
-
-                            <td className="py-2.5 pr-4 text-right text-muted-foreground">
-                              {r.rangosReferencia?.length > 0 
-                                ? `${r.rangosReferencia[0].valorMinimo} - ${r.rangosReferencia[0].valorMaximo}`
-                                : '-'}
-                            </td>
-
-                            <td className="py-2.5 text-right">
-                              {!r.fueraDeRango ? (
-                                <span className="flex items-center justify-end gap-1 text-primary text-xs">
-                                  <CheckCircle className="w-3.5 h-3.5" />
-                                  Normal
-                                </span>
-                              ) : (
-                                <span className="flex items-center justify-end gap-1 text-amber-600 text-xs">
-                                  <AlertTriangle className="w-3.5 h-3.5" />
-                                  Fuera de rango
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {lab.resultados?.some(r => r.observacionTecnica) && (
-                    <div className="mt-4 rounded-lg bg-muted p-3">
-                      <p className="text-xs font-semibold text-muted-foreground mb-1">
-                        Observaciones
-                      </p>
-
-                      <ul className="text-sm text-foreground list-disc list-inside">
-                        {lab.resultados
-                          .filter(r => r.observacionTecnica)
-                          .map((r, i) => (
-                            <li key={i}>{r.nombreAnalito}: {r.observacionTecnica}</li>
-                          ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4 border-border text-foreground hover:bg-muted"
-                  >
-                    <Download className="w-3.5 h-3.5 mr-2" />
-                    Descargar informe
-                  </Button>
-                </div>
-              </div>
-            )}
+      <div className="space-y-3">
+        {listToShow.length === 0 ? (
+          <Card className="border border-border shadow-none">
+            <CardContent className="p-6 text-center text-muted-foreground text-sm">
+              No hay resultados de laboratorio para mostrar.
+            </CardContent>
           </Card>
-        )
-      })}
+        ) : (
+          listToShow.map(renderLabCard)
+        )}
+      </div>
     </div>
   )
 }
@@ -644,11 +763,6 @@ export function MiSaludPage() {
 
       <div className="flex gap-1 p-1 bg-muted rounded-lg mb-6 w-full overflow-auto">
         {tabs.map(({ id, label, icon: Icon }) => {
-          const count = id === 'turnos'
-            ? upcomingAppointments.length
-            : (id === 'recetas'
-              ? activeRecipesCount
-              : labResults.length)
           return (
             <button
               key={id}
@@ -660,11 +774,6 @@ export function MiSaludPage() {
             >
               <Icon className="w-4 h-4 shrink-0" />
               <span>{label}</span>
-              {count > 0 && (
-                <Badge className="ml-1 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full shrink-0">
-                  {count}
-                </Badge>
-              )}
             </button>
           )
         })}

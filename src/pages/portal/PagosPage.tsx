@@ -7,6 +7,8 @@ import {
   ChevronRight,
   Lock,
   ArrowLeft,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { apiUrl } from '@/lib/api'
@@ -354,6 +356,8 @@ export function PagosPage() {
   const [successPayment, setSuccessPayment] = useState<Payment | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [subTab, setSubTab] = useState<'pendientes' | 'historial'>('pendientes')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const loadPayments = useCallback(async () => {
     if (!user?.token) {
@@ -459,113 +463,214 @@ export function PagosPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-8">
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-serif text-lg font-bold text-foreground">Pagos pendientes</h2>
-              {totalPending > 0 && (
-                <Badge className="bg-amber-50 text-amber-700 border-amber-200" variant="outline">
-                  {formatCurrency(totalPending)} pendiente
-                </Badge>
+        <div className="space-y-6">
+          {/* Sub Tabs */}
+          <div className="flex gap-1 p-1 bg-muted rounded-lg max-w-xs w-full mb-2">
+            <button
+              onClick={() => { setSubTab('pendientes'); setExpandedId(null); }}
+              className={cn(
+                "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all text-center",
+                subTab === 'pendientes' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               )}
-            </div>
-            {pendingPayments.length === 0 ? (
-              <Card className="border-border shadow-none">
-                <CardContent className="p-8 text-center text-muted-foreground">No tenes pagos pendientes.</CardContent>
-              </Card>
-            ) : (
-              pendingPayments.map((p) => (
-                <Card key={p._id} className="border-amber-200 shadow-none bg-amber-50/30">
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex gap-3 min-w-0">
-                        <div className="w-11 h-11 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
-                          <AlertCircle className="w-5 h-5 text-amber-600" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-foreground text-sm truncate">{p.concepto}</p>
-                          <p className="text-xs text-muted-foreground">{getTurnoLabel(p)}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{getPaymentSubtitle(p)}</p>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                        <p className="font-bold text-foreground">{formatCurrency(p.monto)}</p>
-                        <Button
-                          size="sm"
-                          className="bg-primary text-primary-foreground hover:bg-secondary text-xs"
-                          onClick={() => {
-                            setSelectedPayment(p)
-                            setView('checkout')
-                          }}
-                        >
-                          Pagar ahora
-                          <ChevronRight className="w-3.5 h-3.5 ml-1" />
-                        </Button>
-                      </div>
-                    </div>
+            >
+              Pendientes
+            </button>
+            <button
+              onClick={() => { setSubTab('historial'); setExpandedId(null); }}
+              className={cn(
+                "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all text-center",
+                subTab === 'historial' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Historial de pagos
+            </button>
+          </div>
+
+          {subTab === 'pendientes' ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="font-serif text-lg font-bold text-foreground">Pagos pendientes</h2>
+                {totalPending > 0 && (
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-200" variant="outline">
+                    {formatCurrency(totalPending)} total
+                  </Badge>
+                )}
+              </div>
+              {pendingPayments.length === 0 ? (
+                <Card className="border-border shadow-none">
+                  <CardContent className="p-6 text-center text-muted-foreground text-sm">
+                    No tenés pagos pendientes.
                   </CardContent>
                 </Card>
-              ))
-            )}
-          </section>
-
-          <section>
-            <h2 className="font-serif text-lg font-bold text-foreground mb-4">Historial de pagos</h2>
-            <Card className="border-border shadow-none">
-              {paymentHistory.length === 0 ? (
-                <CardContent className="p-8 text-center text-muted-foreground">
-                  Todavia no tenes pagos aprobados o cubiertos.
-                </CardContent>
               ) : (
-                <CardContent className="p-0 divide-y divide-border">
-                  {paymentHistory.map((p) => (
-                    <div key={p._id} className="flex items-center gap-4 px-5 py-4">
-                      <div
-                        className={cn(
-                          'w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0',
-                          p.estado === 'APROBADO' ? 'bg-primary/10' : 'bg-muted'
-                        )}
-                      >
-                        {p.estado === 'APROBADO' ? (
-                          <CheckCircle className="w-4 h-4 text-primary" />
-                        ) : (
-                          <Wallet className="w-4 h-4 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{p.concepto}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(getPaymentDate(p))} - {p.metodoPago ? methodLabel[p.metodoPago] : 'Obra social'}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{getPaymentSubtitle(p)}</p>
-                      </div>
-                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                        {p.estado === 'CUBIERTO' || p.monto === 0 ? (
-                          <p className="text-sm font-bold text-primary">Cubierto</p>
-                        ) : (
-                          <p className="text-sm font-bold text-foreground">{formatCurrency(p.monto)}</p>
-                        )}
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'text-xs',
-                            p.estado === 'APROBADO'
-                              ? 'bg-primary/10 text-primary border-primary/20'
-                              : 'bg-muted text-muted-foreground'
-                          )}
+                <div className="space-y-3">
+                  {pendingPayments.map((p) => {
+                    const isOpen = expandedId === p._id
+                    return (
+                      <Card key={p._id} className="border-amber-200 shadow-none bg-amber-50/10 overflow-hidden transition-all">
+                        <button
+                          className="w-full text-left"
+                          onClick={() => setExpandedId(isOpen ? null : p._id)}
+                          aria-expanded={isOpen}
                         >
-                          {p.estado}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
+                          <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-4">
+                            <div className="flex gap-3 min-w-0">
+                              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                <AlertCircle className="w-5 h-5 text-amber-600" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-foreground text-sm truncate">{p.concepto}</p>
+                                <p className="text-xs text-muted-foreground">{getTurnoLabel(p)}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 flex-shrink-0">
+                              <p className="font-bold text-foreground text-sm sm:text-base">{formatCurrency(p.monto)}</p>
+                              {isOpen ? (
+                                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                              )}
+                            </div>
+                          </CardContent>
+                        </button>
+                        {isOpen && (
+                          <div className="px-5 pb-5 border-t border-border bg-amber-50/5">
+                            <div className="pt-4 space-y-3 text-sm">
+                              <div className="bg-muted/40 p-4 rounded-xl space-y-2">
+                                <div className="flex justify-between">
+                                  <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Concepto</span>
+                                  <span className="font-medium text-foreground">{p.concepto}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Detalles</span>
+                                  <span className="font-medium text-foreground text-right">{getPaymentSubtitle(p)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Monto a pagar</span>
+                                  <span className="font-bold text-primary">{formatCurrency(p.monto)}</span>
+                                </div>
+                              </div>
+                              <div className="pt-2 text-right">
+                                <Button
+                                  size="sm"
+                                  className="bg-primary text-primary-foreground hover:bg-secondary w-full sm:w-auto"
+                                  onClick={() => {
+                                    setSelectedPayment(p)
+                                    setView('checkout')
+                                  }}
+                                >
+                                  Pagar ahora
+                                  <ChevronRight className="w-4 h-4 ml-1" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </Card>
+                    )
+                  })}
+                </div>
               )}
-            </Card>
-          </section>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <h2 className="font-serif text-lg font-bold text-foreground font-semibold">Historial de pagos</h2>
+              {paymentHistory.length === 0 ? (
+                <Card className="border-border shadow-none">
+                  <CardContent className="p-8 text-center text-muted-foreground text-sm">
+                    Todavía no tenés pagos aprobados o cubiertos.
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {paymentHistory.map((p) => {
+                    const isOpen = expandedId === p._id
+                    return (
+                      <Card key={p._id} className="border-border shadow-none overflow-hidden transition-all bg-muted/5 opacity-80">
+                        <button
+                          className="w-full text-left"
+                          onClick={() => setExpandedId(isOpen ? null : p._id)}
+                          aria-expanded={isOpen}
+                        >
+                          <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-4">
+                            <div className="flex gap-3 min-w-0">
+                              <div className={cn(
+                                'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0',
+                                p.estado === 'APROBADO' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                              )}>
+                                {p.estado === 'APROBADO' ? (
+                                  <CheckCircle className="w-5 h-5" />
+                                ) : (
+                                  <Wallet className="w-5 h-5" />
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-foreground text-sm truncate">{p.concepto}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatDate(getPaymentDate(p))} · {p.metodoPago ? methodLabel[p.metodoPago] : 'Obra social'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 flex-shrink-0">
+                              {p.estado === 'CUBIERTO' || p.monto === 0 ? (
+                                <p className="font-semibold text-primary text-sm sm:text-base">Cubierto</p>
+                              ) : (
+                                <p className="font-semibold text-foreground text-sm sm:text-base">{formatCurrency(p.monto)}</p>
+                              )}
+                              {isOpen ? (
+                                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                              )}
+                            </div>
+                          </CardContent>
+                        </button>
+                        {isOpen && (
+                          <div className="px-5 pb-5 border-t border-border bg-muted/10">
+                            <div className="pt-4 space-y-3 text-sm">
+                              <div className="bg-muted p-4 rounded-xl space-y-2">
+                                <div className="flex justify-between">
+                                  <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider font-sans">Comprobante</span>
+                                  <span className="font-mono text-foreground">{p.numeroFactura || 'MP-TRANS-184719'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Fecha</span>
+                                  <span className="font-medium text-foreground">{formatDate(getPaymentDate(p))}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Turno Asociado</span>
+                                  <span className="font-medium text-foreground text-right">{getTurnoLabel(p)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Sede & Médico</span>
+                                  <span className="font-medium text-foreground text-right">{getPaymentSubtitle(p)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Estado</span>
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      'text-xs capitalize',
+                                      p.estado === 'APROBADO' ? 'bg-primary/10 text-primary border-primary/20' : 'bg-muted text-muted-foreground'
+                                    )}
+                                  >
+                                    {p.estado}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </Card>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
-          <section>
-            <h2 className="font-serif text-lg font-bold text-foreground mb-4">Metodos aceptados</h2>
+          <section className="pt-6 border-t border-border">
+            <h2 className="font-serif text-lg font-bold text-foreground mb-4">Métodos aceptados</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
                 { name: 'Visa / Mastercard', sub: 'Debito y credito', icon: CreditCard },
