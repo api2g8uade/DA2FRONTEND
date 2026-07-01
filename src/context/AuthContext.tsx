@@ -4,12 +4,15 @@ import {
   useContext,
   useMemo,
   useSyncExternalStore,
+  useEffect,
   type ReactNode,
 } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 
-import { apiUrl } from '@/lib/api'
+import { apiUrl, API_BASE_URL } from '@/lib/api'
 import { currentPatient } from '@/lib/mock-data'
+import { io } from 'socket.io-client'
+import { toast } from 'sonner'
 
 /** Datos públicos del usuario en sesión (sin contraseña). */
 export type AuthUser = {
@@ -25,6 +28,8 @@ export type AuthUser = {
   telefono?: string
   nroAfiliado?: string
   fechaNacimiento?: string
+  coreId?: string | number
+  coreToken?: string
 }
 
 type StoredAccount = {
@@ -142,6 +147,8 @@ function mapBackendUser(data: any): Partial<AuthUser> {
     telefono: data?.user?.telefono,
     nroAfiliado: data?.user?.nroAfiliado,
     fechaNacimiento: data?.user?.fechaNacimiento,
+    coreId: data?.core?.coreId ?? data?.user?.coreId,
+    coreToken: data?.core?.coreToken,
   }
 }
 
@@ -239,6 +246,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     readSession,
     () => null
   )
+
+  useEffect(() => {
+    if (!user || !user.id) return
+
+    // Conectar al socket del backend usando el base URL de la API
+    const socket = io(API_BASE_URL, {
+      transports: ['websocket', 'polling']
+    })
+
+    socket.on('connect', () => {
+      console.log('Conectado a WebSockets del Backend')
+      socket.emit('subscribe_notifications', user.id)
+    })
+
+    socket.on('nueva_notificacion', (notif: any) => {
+      console.log('Notificación recibida en tiempo real:', notif)
+      
+      // Mostrar toast interactivo con Sonner
+      toast.info(notif.cuerpo || notif.message || 'Tenés una novedad', {
+        description: notif.titulo || 'Portal del Paciente',
+        duration: 8000,
+        action: {
+          label: 'Ver',
+          onClick: () => {
+            window.location.href = '/notificaciones'
+          }
+        }
+      })
+    })
+
+    socket.on('disconnect', () => {
+      console.log('Desconectado de WebSockets')
+    })
+
+    return () => {
+      socket.disconnect()
+    }
+  }, [user])
 
   const login = useCallback(async (email: string, password: string) => {
     const cleanEmail = normalizeEmail(email)
