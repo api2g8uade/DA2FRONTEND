@@ -4,6 +4,7 @@ import { Toaster } from 'sonner'
 import { RequireAuth } from '@/src/context/AuthContext'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { SSOCallbackPage } from './pages/SSOCallbackPage'
 import { PortalLayout } from './layouts/PortalLayout'
 import { MiSaludPage } from './pages/portal/MiSaludPage'
 import { SalaVirtualPage } from './pages/portal/SalaVirtualPage'
@@ -18,6 +19,7 @@ export function App() {
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/auth/sso" element={<SSOCallbackPage />} />
 
         <Route element={<RequireAuth />}>
           <Route element={<PortalLayout />}>
