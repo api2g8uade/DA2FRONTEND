@@ -16,6 +16,7 @@ export function SSOCallbackPage() {
 
     // 1) Si ya vino redirigido desde backend con ?token=...
     if (token) {
+      // Intentamos extraer datos básicos si vienen o redirigimos directo
       localStorage.setItem('token', token)
       navigate(redirect, { replace: true })
       return
@@ -32,11 +33,19 @@ export function SSOCallbackPage() {
           if (!res.ok) throw new Error('No se pudo validar el ticket SSO del Core.')
           const data = await res.json()
           if (data && data.token) {
-            localStorage.setItem('token', data.token)
-            if (data.user) {
-              localStorage.setItem('user', JSON.stringify(data.user))
+            // Guardar con la estructura esperada por AuthContext ('healthgrid-session' en sessionStorage)
+            const authUser = {
+              id: data.user?._id || data.user?.id,
+              dni: data.user?.dni || '',
+              nombre: data.user?.nombre || data.user?.first_name || 'Paciente',
+              apellido: data.user?.apellido || data.user?.last_name || 'SSO',
+              email: data.user?.email || '',
+              token: data.token,
+              isDemo: false
             }
-            navigate(redirect, { replace: true })
+            sessionStorage.setItem('healthgrid-session', JSON.stringify(authUser))
+            // Recargar a la URL de redirección para inicializar de forma limpia
+            window.location.href = redirect
           } else {
             throw new Error('Respuesta inválida en SSO.')
           }
