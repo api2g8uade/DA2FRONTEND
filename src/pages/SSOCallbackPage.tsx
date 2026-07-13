@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Activity, Loader2 } from 'lucide-react'
-import { API_BASE_URL } from '@/lib/api'
+import { apiUrl } from '@/lib/api'
 
 export function SSOCallbackPage() {
   const navigate = useNavigate()
@@ -21,9 +21,9 @@ export function SSOCallbackPage() {
       return
     }
 
-    // 2) Si vino con ?ticket=... canjeamos contra nuestro backend API /auth/sso
+    // 2) Si vino con ?ticket=... canjeamos contra nuestro backend API /api/auth/sso
     if (ticket) {
-      fetch(`${API_BASE_URL}/auth/sso?ticket=${encodeURIComponent(ticket)}&redirect=${encodeURIComponent(redirect)}`, {
+      fetch(apiUrl(`/api/auth/sso?ticket=${encodeURIComponent(ticket)}&redirect=${encodeURIComponent(redirect)}`), {
         headers: {
           Accept: 'application/json'
         }
