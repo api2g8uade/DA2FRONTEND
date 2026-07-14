@@ -111,7 +111,7 @@ function readRegistered(): StoredAccount[] {
       email: demoEmail,
       nombre,
       apellido,
-      password: 'demo123',
+      password: '123123',
       fechaNacimiento: currentPatient.dateOfBirth
     })
   }

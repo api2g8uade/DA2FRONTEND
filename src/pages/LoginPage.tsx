@@ -46,8 +46,8 @@ export function LoginPage() {
 
   const handleDemo = () => {
     setError('')
-    setEmail('maria.gonzalez@email.com')
-    setPassword('demo123')
+    setEmail('asd@asd.com')
+    setPassword('123123')
   }
 
   if (user) return <Navigate to="/mi-salud" replace />

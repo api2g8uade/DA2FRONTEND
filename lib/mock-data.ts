@@ -7,7 +7,7 @@ export const currentPatient = {
   dateOfBirth: "1985-07-14",
   bloodType: "A+",
   phone: "+54 11 4567-8901",
-  email: "maria.gonzalez@email.com",
+  email: "asd@asd.com",
   obraSocial: "OSDE 310",
   affiliateNumber: "4-4231-0987654/01",
   avatar: null,
