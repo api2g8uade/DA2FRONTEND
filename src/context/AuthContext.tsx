@@ -150,6 +150,9 @@ function mapBackendUser(data: any): Partial<AuthUser> {
     fechaNacimiento: data?.user?.fechaNacimiento,
     coreId: data?.core?.coreId ?? data?.user?.coreId,
     coreToken: data?.core?.coreToken,
+    nombre: data?.user?.nombre ?? data?.user?.first_name,
+    apellido: data?.user?.apellido ?? data?.user?.last_name,
+    dni: data?.user?.dni,
   }
 }
 
@@ -309,29 +312,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { ok: false as const, message: 'Ingresá tu email y contraseña para continuar.' }
     }
 
-    const accounts = readRegistered()
-    const found = accounts.find((account) => normalizeEmail(account.email) === cleanEmail)
+    const mode = await getBackendMode()
+    let dni = ''
+    let nombre = ''
+    let apellido = ''
+    let fechaNacimiento = ''
 
-    if (!found || found.password !== password) {
-      return { ok: false as const, message: 'Email o contraseña incorrectos. Si no tenés cuenta, registrate.' }
+    if (mode === 'mock') {
+      const accounts = readRegistered()
+      const found = accounts.find((account) => normalizeEmail(account.email) === cleanEmail)
+
+      if (!found || found.password !== password) {
+        return { ok: false as const, message: 'Email o contraseña incorrectos. Si no tenés cuenta, registrate.' }
+      }
+      dni = normalizeDni(found.dni) || fallbackDniFromEmail(cleanEmail)
+      nombre = found.nombre
+      apellido = found.apellido
+      fechaNacimiento = found.fechaNacimiento
+    } else {
+      dni = fallbackDniFromEmail(cleanEmail)
+      nombre = 'Paciente'
+      apellido = 'SSO'
     }
-
-    const dni = normalizeDni(found.dni) || fallbackDniFromEmail(cleanEmail)
 
     const backendSession = await fetchBackendSession({
       dni,
-      email: found.email,
-      nombre: found.nombre,
-      apellido: found.apellido,
+      email: cleanEmail,
+      nombre,
+      apellido,
       password,
-      fechaNacimiento: found.fechaNacimiento,
+      fechaNacimiento,
     })
 
+    if (!backendSession || !backendSession.token) {
+      return { ok: false as const, message: 'Email o contraseña incorrectos.' }
+    }
+
     const next: AuthUser = {
-      dni,
-      email: found.email,
-      nombre: found.nombre,
-      apellido: found.apellido,
+      dni: backendSession.dni || dni,
+      email: cleanEmail,
+      nombre: backendSession.nombre || nombre,
+      apellido: backendSession.apellido || apellido,
       isDemo: false,
       ...backendSession,
     }
