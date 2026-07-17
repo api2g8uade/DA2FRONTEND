@@ -30,6 +30,11 @@ type HealthContextValue = {
   labError: string | null
   refreshLab: () => Promise<void>
 
+  payments: any[]
+  loadingPayments: boolean
+  paymentsError: string | null
+  refreshPayments: () => Promise<void>
+
   refreshAll: () => void
 }
 
@@ -52,6 +57,11 @@ export function HealthProvider({ children }: { children: ReactNode }) {
   const [labResults, setLabResults] = useState<LabResult[]>([])
   const [loadingLab, setLoadingLab] = useState(false)
   const [labError, setLabError] = useState<string | null>(null)
+
+  // Pagos
+  const [payments, setPayments] = useState<any[]>([])
+  const [loadingPayments, setLoadingPayments] = useState(false)
+  const [paymentsError, setPaymentsError] = useState<string | null>(null)
 
   const refreshProfile = useCallback(async () => {
     if (!user?.token) return
@@ -122,6 +132,24 @@ export function HealthProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.token])
 
+  const refreshPayments = useCallback(async () => {
+    if (!user?.token) return
+    setLoadingPayments(true)
+    setPaymentsError(null)
+    try {
+      const response = await fetch(apiUrl('/api/pagos/historial'), {
+        headers: { Authorization: `Bearer ${user.token}` },
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message ?? 'No se pudo cargar el historial de pagos.')
+      setPayments(Array.isArray(data) ? data : [])
+    } catch (err) {
+      setPaymentsError(err instanceof Error ? err.message : 'No se pudo cargar el historial de pagos.')
+    } finally {
+      setLoadingPayments(false)
+    }
+  }, [user?.token])
+
   const refreshAll = useCallback(() => {
     if (!user?.token) return
     // Disparar todos en paralelo (no bloqueante entre sí)
@@ -129,18 +157,20 @@ export function HealthProvider({ children }: { children: ReactNode }) {
     refreshRecipes()
     refreshAppointments()
     refreshLab()
-  }, [user?.token, refreshProfile, refreshRecipes, refreshAppointments, refreshLab])
+    refreshPayments()
+  }, [user?.token, refreshProfile, refreshRecipes, refreshAppointments, refreshLab, refreshPayments])
 
   // Pre-cargar datos tan pronto como el usuario inicie sesión
   useEffect(() => {
     if (user?.token) {
-      console.log('[HealthContext] Pre-cargando todos los datos médicos del paciente en paralelo...')
+      console.log('[HealthContext] Pre-cargando todos los datos médicos y pagos en paralelo...')
       refreshAll()
     } else {
       // Limpiar estados al cerrar sesión
       setRecipes([])
       setAppointments([])
       setLabResults([])
+      setPayments([])
     }
   }, [user?.token])
 
@@ -158,6 +188,10 @@ export function HealthProvider({ children }: { children: ReactNode }) {
       loadingLab,
       labError,
       refreshLab,
+      payments,
+      loadingPayments,
+      paymentsError,
+      refreshPayments,
       refreshAll,
     }),
     [
@@ -173,6 +207,10 @@ export function HealthProvider({ children }: { children: ReactNode }) {
       loadingLab,
       labError,
       refreshLab,
+      payments,
+      loadingPayments,
+      paymentsError,
+      refreshPayments,
       refreshAll,
     ]
   )

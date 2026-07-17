@@ -13,6 +13,7 @@ import {
 import { cn } from '@/lib/utils'
 import { apiUrl } from '@/lib/api'
 import { useAuth } from '@/src/context/AuthContext'
+import { useHealth } from '@/src/context/HealthContext'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -351,41 +352,17 @@ function PaymentSuccess({ payment, onBack }: { payment: Payment | null; onBack: 
 export function PagosPage() {
   const { user } = useAuth()
   const [view, setView] = useState<PaymentView>('list')
-  const [payments, setPayments] = useState<Payment[]>([])
+  const { payments, loadingPayments: loading, paymentsError: error, refreshPayments: loadPayments } = useHealth()
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
   const [successPayment, setSuccessPayment] = useState<Payment | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [subTab, setSubTab] = useState<'pendientes' | 'historial'>('pendientes')
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
-  const loadPayments = useCallback(async () => {
-    if (!user?.token) {
-      setError('No hay una sesion activa para consultar pagos.')
-      setLoading(false)
-      return
-    }
-
-    setLoading(true)
-    setError(null)
-
-    try {
-      const response = await fetch(apiUrl('/api/pagos/historial'), {
-        headers: { Authorization: `Bearer ${user.token}` },
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.message ?? 'No se pudo cargar el historial de pagos.')
-      setPayments(Array.isArray(data) ? data : [])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo cargar el historial de pagos.')
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    if (user?.token) {
+      void loadPayments()
     }
   }, [user?.token])
-
-  useEffect(() => {
-    void loadPayments()
-  }, [loadPayments])
 
   const pendingPayments = useMemo(
     () => payments.filter((payment) => payment.estado === 'PENDIENTE'),
