@@ -538,7 +538,7 @@ function PrescriptionsTab() {
   const { user } = useAuth()
   const [subTab, setSubTab] = useState<'vigentes' | 'historial'>('vigentes')
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const { recipes, loading, error, refreshRecipes } = useRecipes()
+  const { recipes, loadingRecipes: loading, recipesError: error, refreshRecipes } = useHealth()
 
   useEffect(() => {
     refreshRecipes()
