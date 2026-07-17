@@ -11,6 +11,7 @@ export interface UpcomingAppointment {
   status: string
   ends_at?: string
   isHighComplexity?: boolean
+  linkVideollamada?: string
 }
 
 export async function fetchAppointments(token: string): Promise<UpcomingAppointment[]> {
@@ -49,6 +50,7 @@ export async function fetchAppointments(token: string): Promise<UpcomingAppointm
       status: status,
       ends_at: t.ends_at,
       isHighComplexity,
+      linkVideollamada: t.linkVideollamada,
     }
   })
 }

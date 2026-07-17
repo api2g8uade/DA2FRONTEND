@@ -825,11 +825,6 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
                     <p className="font-semibold text-foreground">
                       {studyNames.length > 0 ? studyNames[0] : 'Orden de Laboratorio'}
                     </p>
-                    {isNew && isEntregada && (
-                      <span className="text-[10px] font-bold uppercase tracking-wide bg-emerald-500 text-white px-2 py-0.5 rounded-full animate-pulse">
-                        Nuevo
-                      </span>
-                    )}
                     {isEntregada && hasCritical && (
                       <span className="flex items-center gap-1 text-[10px] font-bold uppercase bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
                         <AlertTriangle className="w-3 h-3" /> Crítico
