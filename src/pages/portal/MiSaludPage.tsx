@@ -874,43 +874,6 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
         {isOpen && (
           <div className="px-5 pb-5 border-t border-border bg-muted/5">
             <div className="pt-4">
-              {/* Estado del flujo — timeline */}
-              <div className="mb-5">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Flujo de la orden</p>
-                <div className="flex items-center gap-0">
-                  {(['Pendiente', 'En Proceso', 'Finalizada', 'Entregada'] as const).map((step, idx) => {
-                    const stepStates = ['pendiente', 'enproceso', 'finalizada', 'entregada']
-                    const currentIdx = ['0', 'pendiente', '1', 'enproceso', '2', 'finalizada', '3', 'entregada', 'finalizado'].indexOf(
-                      String(lab.estado ?? '').toLowerCase().replace(/\s/g, '')
-                    )
-                    const mappedIdx = currentIdx <= 1 ? 0 : currentIdx <= 3 ? 1 : currentIdx <= 5 ? 2 : 3
-                    const isActive = idx === mappedIdx
-                    const isDone = idx < mappedIdx
-                    return (
-                      <div key={step} className="flex items-center flex-1 last:flex-none">
-                        <div className="flex flex-col items-center">
-                          <div className={cn(
-                            'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all',
-                            isDone ? 'bg-primary border-primary text-primary-foreground' :
-                              isActive ? 'bg-primary/10 border-primary text-primary' :
-                                'bg-muted border-border text-muted-foreground'
-                          )}>
-                            {isDone ? <CheckCircle className="w-4 h-4" /> : idx + 1}
-                          </div>
-                          <span className={cn('text-[10px] mt-1 font-medium', isActive ? 'text-primary' : isDone ? 'text-foreground' : 'text-muted-foreground')}>
-                            {step}
-                          </span>
-                        </div>
-                        {idx < 3 && (
-                          <div className={cn('flex-1 h-0.5 mx-1 mb-4', isDone ? 'bg-primary' : 'bg-border')} />
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Resultados */}
               {isEntregada && hasResults ? (
                 <>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Resultados de análisis</p>
@@ -935,7 +898,6 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
                             )}
                           >
                             <td className="py-2.5 pr-4 text-foreground font-medium">{r.nombreAnalito}</td>
-
                             <td className={cn(
                               "py-2.5 pr-4 text-right font-mono font-bold",
                               r.esCritico ? "text-red-600" : r.fueraDeRango ? "text-amber-600" : "text-foreground"
@@ -943,13 +905,11 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
                               {r.valor}{' '}
                               <span className="text-muted-foreground font-normal text-xs">{r.unidadMedida}</span>
                             </td>
-
                             <td className="py-2.5 pr-4 text-right text-muted-foreground text-xs">
                               {r.rangosReferencia?.length > 0
                                 ? `${r.rangosReferencia[0].valorMinimo} – ${r.rangosReferencia[0].valorMaximo}`
                                 : '—'}
                             </td>
-
                             <td className="py-2.5 text-right">
                               {r.esCritico ? (
                                 <span className="inline-flex items-center gap-1 text-red-600 text-xs font-bold bg-red-100 px-2 py-0.5 rounded-full animate-pulse">
@@ -991,11 +951,10 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
                 </div>
               ) : (
                 <div className="py-4 text-center text-sm text-muted-foreground">
-                  No se registraron resultados para esta orden.
+                  Tu orden está siendo procesada.
                 </div>
               )}
 
-              {/* Footer metadata */}
               <div className="mt-4 pt-3 border-t border-border/50 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
                 {isEntregada && lab.resultados?.[0]?.bioquimicoResponsable && (
                   <p>Bioquímico: <span className="text-foreground font-medium">{lab.resultados[0].bioquimicoResponsable}</span></p>
@@ -1008,17 +967,18 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
                 )}
               </div>
 
-              {isEntregada && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-4 border-border text-foreground hover:bg-muted"
-                  onClick={() => downloadLabPDF(lab, user ? `${user.nombre} ${user.apellido}`.trim() : (lab.pacienteNombre || 'Paciente'))}
-                >
-                  <Download className="w-3.5 h-3.5 mr-2" />
-                  Descargar informe PDF
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4 border-border text-foreground hover:bg-muted"
+                disabled={!isEntregada}
+                onClick={() => {
+                  if (isEntregada) downloadLabPDF(lab, user ? `${user.nombre} ${user.apellido}`.trim() : (lab.pacienteNombre || 'Paciente'))
+                }}
+              >
+                <Download className="w-3.5 h-3.5 mr-2" />
+                Descargar informe PDF
+              </Button>
             </div>
           </div>
         )}
