@@ -27,7 +27,49 @@ import { jsPDF } from 'jspdf'
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
 
-const downloadRecipePDF = (rec: any) => {
+const renderIndications = (indicacionesStr: string) => {
+  if (!indicacionesStr) return <p className="text-xs text-muted-foreground mt-1">Sin indicaciones particulares</p>;
+  
+  try {
+    const data = JSON.parse(indicacionesStr);
+    
+    const hasFields = data.tipoConsulta || data.diagnostico || data.planTratamiento || data.observacionesAdicionales;
+    if (!hasFields) {
+      return <p className="text-xs text-muted-foreground mt-1">Indicaciones: {indicacionesStr}</p>;
+    }
+    
+    const cleanVal = (val: string) => (val && val !== '-' && val !== 'null') ? val : null;
+    
+    const fields = [
+      { label: 'Tipo de Consulta', value: cleanVal(data.tipoConsulta)?.replace('_', ' ') },
+      { label: 'Fecha/Hora', value: cleanVal(data.fechaHora) },
+      { label: 'Profesional', value: cleanVal(data.profesional) },
+      { label: 'Diagnóstico', value: cleanVal(data.diagnostico) },
+      { label: 'Plan de Tratamiento', value: cleanVal(data.planTratamiento) },
+      { label: 'Observaciones', value: cleanVal(data.observacionesAdicionales) },
+      { label: 'Motivo / Estado', value: cleanVal(data.motivoEstado) },
+    ].filter(f => f.value);
+    
+    if (fields.length === 0) {
+      return <p className="text-xs text-muted-foreground mt-1">Sin indicaciones particulares</p>;
+    }
+    
+    return (
+      <div className="mt-2 pt-2 border-t border-border/30 space-y-1 text-xs">
+        <p className="font-semibold text-foreground mb-1">Detalles de Consulta:</p>
+        {fields.map(f => (
+          <p key={f.label} className="text-muted-foreground">
+            <span className="font-medium text-foreground">{f.label}:</span> {f.value}
+          </p>
+        ))}
+      </div>
+    );
+  } catch (e) {
+    return <p className="text-xs text-muted-foreground mt-1">Indicaciones: {indicacionesStr}</p>;
+  }
+};
+
+const downloadRecipePDF = (rec: any, patientName: string) => {
   const doc = new jsPDF()
   
   // Header background
@@ -64,7 +106,7 @@ const downloadRecipePDF = (rec: any) => {
   
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
-  doc.text(`Paciente: ID Paciente HCE: ${rec.id_paciente || 'Portal'}`, 15, 65)
+  doc.text(`Paciente: ${patientName}`, 15, 65)
   doc.text(`Estado de la Receta: ${rec.estado || 'Activa'}`, 15, 71)
   
   // Prescription content block
@@ -92,7 +134,25 @@ const downloadRecipePDF = (rec: any) => {
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   
-  const splitIndications = doc.splitTextToSize(rec.indicaciones || 'Sin indicaciones particulares', 180)
+  let indicationsText = rec.indicaciones || 'Sin indicaciones particulares';
+  try {
+    const data = JSON.parse(rec.indicaciones);
+    const cleanVal = (val: string) => (val && val !== '-' && val !== 'null') ? val : null;
+    const lines = [];
+    if (cleanVal(data.tipoConsulta)) lines.push(`Tipo Consulta: ${data.tipoConsulta.replace('_', ' ')}`);
+    if (cleanVal(data.fechaHora)) lines.push(`Fecha/Hora: ${data.fechaHora}`);
+    if (cleanVal(data.profesional)) lines.push(`Profesional: ${data.profesional.replace(/\s*\(HCE ID:\s*\d+\)/i, '')}`);
+    if (cleanVal(data.diagnostico)) lines.push(`Diagnóstico: ${data.diagnostico}`);
+    if (cleanVal(data.planTratamiento)) lines.push(`Plan de Tratamiento: ${data.planTratamiento}`);
+    if (cleanVal(data.observacionesAdicionales)) lines.push(`Observaciones: ${data.observacionesAdicionales}`);
+    if (lines.length > 0) {
+      indicationsText = lines.join('\n');
+    }
+  } catch (e) {
+    // No es JSON
+  }
+
+  const splitIndications = doc.splitTextToSize(indicationsText, 180)
   doc.text(splitIndications, 15, 129)
   
   // Pharmacological Alerts block
@@ -126,7 +186,8 @@ const downloadRecipePDF = (rec: any) => {
   doc.line(120, currentY, 185, currentY)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
-  doc.text(rec.medicoId || 'Médico Responsable', 152.5, currentY + 6, { align: 'center' })
+  const docName = (rec.medicoId || 'Médico Responsable').replace(/\s*\(HCE ID:\s*\d+\)/i, '')
+  doc.text(docName, 152.5, currentY + 6, { align: 'center' })
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.text('Firma y Sello del Profesional', 152.5, currentY + 11, { align: 'center' })
@@ -139,7 +200,7 @@ const downloadRecipePDF = (rec: any) => {
   doc.save(`receta_${recId.slice(-6).toUpperCase()}.pdf`)
 }
 
-const downloadLabPDF = (lab: any) => {
+const downloadLabPDF = (lab: any, patientName: string) => {
   const doc = new jsPDF()
   
   // Header background
@@ -176,7 +237,7 @@ const downloadLabPDF = (lab: any) => {
   
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
-  doc.text(`Paciente: ${lab.pacienteNombre || 'Paciente Portal'}`, 15, 65)
+  doc.text(`Paciente: ${patientName}`, 15, 65)
   doc.text(`DNI: ${lab.pacienteDni || 'No registrado'}`, 15, 71)
   doc.text(`Edad: ${lab.pacienteEdad || '-'} años   |   Sexo: ${lab.pacienteSexo || '-'}`, 15, 77)
   doc.text(`Prioridad de la orden: ${lab.prioridad || 'RUTINA'}`, 15, 83)
@@ -562,7 +623,7 @@ function PrescriptionsTab() {
               <div className="bg-muted rounded-lg p-3">
                 <p className="text-sm font-semibold text-foreground">{rec.medicamento}</p>
                 {rec.dosis && <p className="text-xs text-muted-foreground mt-0.5">Dosis: {rec.dosis}</p>}
-                <p className="text-xs text-muted-foreground mt-1">Indicaciones: {rec.indicaciones}</p>
+                {renderIndications(rec.indicaciones)}
               </div>
 
               {rec.alertas_farmacologicas && rec.alertas_farmacologicas.length > 0 ? (
@@ -591,7 +652,7 @@ function PrescriptionsTab() {
                 variant="outline"
                 size="sm"
                 className="mt-2 border-border text-foreground hover:bg-muted"
-                onClick={() => downloadRecipePDF(rec)}
+                onClick={() => downloadRecipePDF(rec, user ? `${user.nombre} ${user.apellido}`.trim() : 'Paciente')}
               >
                 <Download className="w-3.5 h-3.5 mr-2" />
                 Descargar PDF
@@ -841,7 +902,7 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
                 variant="outline"
                 size="sm"
                 className="mt-4 border-border text-foreground hover:bg-muted"
-                onClick={() => downloadLabPDF(lab)}
+                onClick={() => downloadLabPDF(lab, user ? `${user.nombre} ${user.apellido}`.trim() : (lab.pacienteNombre || 'Paciente'))}
               >
                 <Download className="w-3.5 h-3.5 mr-2" />
                 Descargar informe
