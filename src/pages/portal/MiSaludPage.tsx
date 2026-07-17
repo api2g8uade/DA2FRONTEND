@@ -29,17 +29,17 @@ const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
 
 const renderIndications = (indicacionesStr: string) => {
   if (!indicacionesStr) return <p className="text-xs text-muted-foreground mt-1">Sin indicaciones particulares</p>;
-  
+
   try {
     const data = JSON.parse(indicacionesStr);
-    
+
     const hasFields = data.tipoConsulta || data.diagnostico || data.planTratamiento || data.observacionesAdicionales;
     if (!hasFields) {
       return <p className="text-xs text-muted-foreground mt-1">Indicaciones: {indicacionesStr}</p>;
     }
-    
+
     const cleanVal = (val: string) => (val && val !== '-' && val !== 'null') ? val : null;
-    
+
     const fields = [
       { label: 'Tipo de Consulta', value: cleanVal(data.tipoConsulta)?.replace('_', ' ') },
       { label: 'Fecha/Hora', value: cleanVal(data.fechaHora) },
@@ -49,11 +49,11 @@ const renderIndications = (indicacionesStr: string) => {
       { label: 'Observaciones', value: cleanVal(data.observacionesAdicionales) },
       { label: 'Motivo / Estado', value: cleanVal(data.motivoEstado) },
     ].filter(f => f.value);
-    
+
     if (fields.length === 0) {
       return <p className="text-xs text-muted-foreground mt-1">Sin indicaciones particulares</p>;
     }
-    
+
     return (
       <div className="mt-2 pt-2 border-t border-border/30 space-y-1 text-xs">
         <p className="font-semibold text-foreground mb-1">Detalles de Consulta:</p>
@@ -71,50 +71,50 @@ const renderIndications = (indicacionesStr: string) => {
 
 const downloadRecipePDF = (rec: any, patientName: string) => {
   const doc = new jsPDF()
-  
+
   // Header background
   doc.setFillColor(79, 70, 229) // Brand color (Indigo 600)
   doc.rect(0, 0, 210, 40, 'F')
-  
+
   // Header text
   doc.setTextColor(255, 255, 255)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(22)
   doc.text('HEALTH GRID', 15, 20)
-  
+
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   doc.text('Portal del Paciente - Receta Médica', 15, 28)
-  
+
   // Document info
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
   const recId = rec.id_receta?.toString() || rec._id || 'Desconocido'
   doc.text(`Receta N°: ${recId.slice(-8).toUpperCase()}`, 195, 20, { align: 'right' })
-  
+
   const emissionDate = rec.fechaEmision || rec.createdAt || new Date().toISOString()
   const dateFormatted = emissionDate.split('T')[0].split('-').reverse().join('/')
   doc.setFont('helvetica', 'normal')
   doc.text(`Emitida el: ${dateFormatted}`, 195, 28, { align: 'right' })
-  
+
   // Patient details block
   doc.setTextColor(31, 41, 55)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
   doc.text('INFORMACIÓN DEL PACIENTE', 15, 55)
   doc.line(15, 57, 195, 57)
-  
+
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   doc.text(`Paciente: ${patientName}`, 15, 65)
   doc.text(`Estado de la Receta: ${rec.estado || 'Activa'}`, 15, 71)
-  
+
   // Prescription content block
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
   doc.text('PRESCRIPCIÓN MÉDICA', 15, 85)
   doc.line(15, 87, 195, 87)
-  
+
   // Medication Name box
   doc.setFillColor(243, 244, 246)
   doc.rect(15, 93, 180, 20, 'F')
@@ -126,14 +126,14 @@ const downloadRecipePDF = (rec: any, patientName: string) => {
     doc.setFontSize(9)
     doc.text(`Dosis: ${rec.dosis}`, 20, 107)
   }
-  
+
   // Indications
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
   doc.text('Indicaciones / Instrucciones de uso:', 15, 123)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
-  
+
   let indicationsText = rec.indicaciones || 'Sin indicaciones particulares';
   try {
     const data = JSON.parse(rec.indicaciones);
@@ -154,7 +154,7 @@ const downloadRecipePDF = (rec: any, patientName: string) => {
 
   const splitIndications = doc.splitTextToSize(indicationsText, 180)
   doc.text(splitIndications, 15, 129)
-  
+
   // Pharmacological Alerts block
   let currentY = 135 + (splitIndications.length * 5)
   doc.setFont('helvetica', 'bold')
@@ -162,7 +162,7 @@ const downloadRecipePDF = (rec: any, patientName: string) => {
   doc.text('Alertas Farmacológicas:', 15, currentY)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
-  
+
   if (rec.alertas_farmacologicas && rec.alertas_farmacologicas.length > 0) {
     currentY += 5
     rec.alertas_farmacologicas.forEach((alerta: any) => {
@@ -179,7 +179,7 @@ const downloadRecipePDF = (rec: any, patientName: string) => {
     doc.text('No hay alertas farmacológicas indicadas para esta receta.', 15, currentY + 5)
     currentY += 15
   }
-  
+
   // Doctor/Medic signature block
   currentY = Math.max(currentY + 15, 200)
   doc.setTextColor(31, 41, 55)
@@ -191,63 +191,63 @@ const downloadRecipePDF = (rec: any, patientName: string) => {
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.text('Firma y Sello del Profesional', 152.5, currentY + 11, { align: 'center' })
-  
+
   // Footer
   doc.setFontSize(8)
   doc.setTextColor(156, 163, 175)
   doc.text('Documento de carácter digital generado a través de Health Grid.', 105, 280, { align: 'center' })
-  
+
   doc.save(`receta_${recId.slice(-6).toUpperCase()}.pdf`)
 }
 
 const downloadLabPDF = (lab: any, patientName: string) => {
   const doc = new jsPDF()
-  
+
   // Header background
   doc.setFillColor(79, 70, 229) // Indigo 600
   doc.rect(0, 0, 210, 40, 'F')
-  
+
   // Header text
   doc.setTextColor(255, 255, 255)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(22)
   doc.text('HEALTH GRID', 15, 20)
-  
+
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   doc.text('Portal del Paciente - Informe de Laboratorio', 15, 28)
-  
+
   // Document info
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
   const labId = lab.id?.toString() || lab._id || 'Desconocido'
   doc.text(`Informe N°: ${labId.slice(-8).toUpperCase()}`, 195, 20, { align: 'right' })
-  
+
   const reqDate = lab.fechaSolicitud || lab.createdAt || new Date().toISOString()
   const dateFormatted = new Date(reqDate).toLocaleDateString('es-AR')
   doc.setFont('helvetica', 'normal')
   doc.text(`Fecha: ${dateFormatted}`, 195, 28, { align: 'right' })
-  
+
   // Patient Details Block
   doc.setTextColor(31, 41, 55)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
   doc.text('DATOS DEL PACIENTE', 15, 55)
   doc.line(15, 57, 195, 57)
-  
+
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   doc.text(`Paciente: ${patientName}`, 15, 65)
   doc.text(`DNI: ${lab.pacienteDni || 'No registrado'}`, 15, 71)
   doc.text(`Edad: ${lab.pacienteEdad || '-'} años   |   Sexo: ${lab.pacienteSexo || '-'}`, 15, 77)
   doc.text(`Prioridad de la orden: ${lab.prioridad || 'RUTINA'}`, 15, 83)
-  
+
   // Results Table header
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
   doc.text('RESULTADOS DE ANÁLISIS CLÍNICOS', 15, 97)
   doc.line(15, 99, 195, 99)
-  
+
   // Table columns
   doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
@@ -256,10 +256,10 @@ const downloadLabPDF = (lab: any, patientName: string) => {
   doc.text('Rango Referencia', 145, 106)
   doc.text('Estado', 180, 106)
   doc.line(15, 109, 195, 109)
-  
+
   doc.setFont('helvetica', 'normal')
   let currentY = 116
-  
+
   if (lab.resultados && lab.resultados.length > 0) {
     lab.resultados.forEach((r: any) => {
       // Background shading for criticals/out of range
@@ -274,18 +274,18 @@ const downloadLabPDF = (lab: any, patientName: string) => {
       } else {
         doc.setTextColor(31, 41, 55)
       }
-      
+
       doc.text(r.nombreAnalito || 'Analito', 15, currentY)
       doc.text(`${r.valor} ${r.unidadMedida}`, 100, currentY)
-      
-      const minMax = r.rangosReferencia?.length > 0 
+
+      const minMax = r.rangosReferencia?.length > 0
         ? `${r.rangosReferencia[0].valorMinimo} - ${r.rangosReferencia[0].valorMaximo}`
         : '-'
       doc.text(minMax, 145, currentY)
-      
+
       const statusText = r.esCritico ? 'CRÍTICO' : (r.fueraDeRango ? 'ALTO/BAJO' : 'NORMAL')
       doc.text(statusText, 180, currentY)
-      
+
       currentY += 10
     })
   } else {
@@ -293,10 +293,10 @@ const downloadLabPDF = (lab: any, patientName: string) => {
     doc.text('No se han registrado resultados médicos aún.', 15, currentY)
     currentY += 10
   }
-  
+
   doc.setTextColor(31, 41, 55)
   doc.line(15, currentY - 4, 195, currentY - 4)
-  
+
   // Technical observations
   const obs = lab.resultados?.filter((r: any) => r.observacionTecnica) || []
   if (obs.length > 0) {
@@ -312,7 +312,7 @@ const downloadLabPDF = (lab: any, patientName: string) => {
     })
     currentY += 5
   }
-  
+
   // Bioq signature block
   currentY = Math.max(currentY + 20, 200)
   const bioq = lab.resultados?.[0]?.bioquimicoResponsable || 'Bioquímico a cargo'
@@ -323,12 +323,12 @@ const downloadLabPDF = (lab: any, patientName: string) => {
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.text('Firma del Bioquímico Responsable', 152.5, currentY + 11, { align: 'center' })
-  
+
   // Footer
   doc.setFontSize(8)
   doc.setTextColor(156, 163, 175)
   doc.text('Documento de carácter digital generado a través de Health Grid.', 105, 280, { align: 'center' })
-  
+
   doc.save(`informe_laboratorio_${labId.slice(-6).toUpperCase()}.pdf`)
 }
 
@@ -600,11 +600,6 @@ function PrescriptionsTab() {
                       Emitida el {(rec.fechaEmision || rec.createdAt).split('T')[0].split('-').reverse().join('/')}
                     </p>
                   )}
-                  {rec.id_evolucion && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Evolución asociada: {rec.id_evolucion}
-                    </p>
-                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -771,7 +766,7 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
       const s = String(res.estado ?? '').toLowerCase().replace(/\s/g, '')
       const isFinished = s === '3' || s === 'entregada' || s === 'finalizado'
       const reqDate = res.fechaSolicitud ? new Date(res.fechaSolicitud) : (res.createdAt ? new Date(res.createdAt) : new Date())
-      
+
       if (!isFinished || reqDate >= threshold) {
         active.push(res)
       } else {
@@ -886,7 +881,7 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
                 <div className="flex items-center gap-0">
                   {(['Pendiente', 'En Proceso', 'Finalizada', 'Entregada'] as const).map((step, idx) => {
                     const stepStates = ['pendiente', 'enproceso', 'finalizada', 'entregada']
-                    const currentIdx = ['0','pendiente','1','enproceso','2','finalizada','3','entregada','finalizado'].indexOf(
+                    const currentIdx = ['0', 'pendiente', '1', 'enproceso', '2', 'finalizada', '3', 'entregada', 'finalizado'].indexOf(
                       String(lab.estado ?? '').toLowerCase().replace(/\s/g, '')
                     )
                     const mappedIdx = currentIdx <= 1 ? 0 : currentIdx <= 3 ? 1 : currentIdx <= 5 ? 2 : 3
@@ -898,8 +893,8 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
                           <div className={cn(
                             'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all',
                             isDone ? 'bg-primary border-primary text-primary-foreground' :
-                            isActive ? 'bg-primary/10 border-primary text-primary' :
-                            'bg-muted border-border text-muted-foreground'
+                              isActive ? 'bg-primary/10 border-primary text-primary' :
+                                'bg-muted border-border text-muted-foreground'
                           )}>
                             {isDone ? <CheckCircle className="w-4 h-4" /> : idx + 1}
                           </div>
@@ -1143,7 +1138,7 @@ export function MiSaludPage() {
   const { upcomingAppointments, pastAppointments } = useMemo(() => {
     const upcoming: UpcomingAppointment[] = []
     const past: UpcomingAppointment[] = []
-    
+
     // Ordenar cronológicamente
     const sorted = [...appointments].sort((a, b) => {
       const dateA = new Date(`${a.date}T${a.time}:00`).getTime()
@@ -1159,7 +1154,7 @@ export function MiSaludPage() {
         past.push(appt)
       }
     }
-    
+
     // El historial queremos mostrarlo del más nuevo al más viejo
     past.reverse()
 
@@ -1196,11 +1191,11 @@ export function MiSaludPage() {
             icon: FileText,
             color: 'text-accent',
           },
-          { 
-            label: 'Resultados de estudios', 
-            value: labResults.length, 
-            icon: FlaskConical, 
-            color: 'text-primary' 
+          {
+            label: 'Resultados de estudios',
+            value: labResults.length,
+            icon: FlaskConical,
+            color: 'text-primary'
           },
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label} className="border-border shadow-none">
@@ -1234,7 +1229,7 @@ export function MiSaludPage() {
       </div>
 
       {loading && <div className="text-center text-muted-foreground py-8">Cargando datos médicos...</div>}
-      
+
       {!loading && (
         <>
           {activeTab === 'turnos' && (
