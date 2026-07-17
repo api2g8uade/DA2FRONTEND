@@ -10,6 +10,7 @@ export interface UpcomingAppointment {
   modality: 'presencial' | 'virtual'
   status: string
   ends_at?: string
+  isHighComplexity?: boolean
 }
 
 export async function fetchAppointments(token: string): Promise<UpcomingAppointment[]> {
@@ -30,6 +31,13 @@ export async function fetchAppointments(token: string): Promise<UpcomingAppointm
     else if (t.status === 'COMPLETED' || t.status === 'completado') status = 'completado'
     else if (t.status) status = t.status.toLowerCase()
 
+    const isHighComplexity = t.speciality?.is_high_complexity === 1 || t.speciality?.is_high_complexity === true;
+    
+    let modality: 'presencial' | 'virtual' = 'presencial';
+    if (!isHighComplexity && (t.modality === 'virtual' || t.medical_center?.name === 'Sala Virtual' || !!t.linkVideollamada)) {
+      modality = 'virtual';
+    }
+
     return {
       id: String(t.id || t._id),
       doctor: t.medic?.fullname || 'Médico Asignado',
@@ -37,9 +45,10 @@ export async function fetchAppointments(token: string): Promise<UpcomingAppointm
       date: t.starts_at ? t.starts_at.split(' ')[0] : '',
       time: t.starts_at && t.starts_at.split(' ').length > 1 ? t.starts_at.split(' ')[1].substring(0, 5) : '00:00', // HH:mm
       location: t.medical_center?.name || 'Centro Médico',
-      modality: (t.modality === 'virtual' || t.medical_center?.name === 'Sala Virtual' || !!t.linkVideollamada) ? 'virtual' : 'presencial',
+      modality: modality,
       status: status,
       ends_at: t.ends_at,
+      isHighComplexity,
     }
   })
 }

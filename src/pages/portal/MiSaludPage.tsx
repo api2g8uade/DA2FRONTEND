@@ -400,6 +400,11 @@ function AppointmentsTab({
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0">
+                {appt.isHighComplexity && (
+                  <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
+                    Alta Complejidad
+                  </Badge>
+                )}
                 <Badge
                   className={cn(
                     'text-xs capitalize',
@@ -446,6 +451,15 @@ function AppointmentsTab({
                   </div>
                 )}
               </div>
+
+              {appt.isHighComplexity && (
+                <div className="pt-2 pb-1">
+                  <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 p-3 rounded-lg flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>Las consultas de alta complejidad requieren modalidad presencial.</span>
+                  </p>
+                </div>
+              )}
 
               {isVirtual && !isPast && (
                 <div className="pt-2">

@@ -59,7 +59,7 @@ export function SalaVirtualPage() {
   // Filtrar turnos virtuales activos (no cancelados ni completados)
   const virtualAppointments = useMemo(() => {
     return appointments
-      .filter((appt) => appt.modality === 'virtual' && appt.status !== 'cancelado' && appt.status !== 'completado')
+      .filter((appt) => appt.modality === 'virtual' && appt.status !== 'cancelado' && appt.status !== 'completado' && !appt.isHighComplexity)
       .sort((a, b) => {
         const dateA = new Date(`${a.date}T${a.time}:00`).getTime()
         const dateB = new Date(`${b.date}T${b.time}:00`).getTime()
@@ -258,7 +258,7 @@ export function SalaVirtualPage() {
                 <div className="bg-amber-500/10 border border-amber-500/20 text-amber-800 rounded-xl p-3 flex items-start gap-2.5">
                   <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
                   <p className="text-xs text-amber-800/90 leading-normal">
-                    El botón para ingresar a la videollamada se habilitará automáticamente <strong>30 minutos antes</strong> de la hora del turno programada (desde las {
+                    La llamada para el siguiente turno virtual con el <strong>Dr. {nextAppointment.doctor}</strong>, el día <strong>{formatFriendlyDate(nextAppointment.date)}</strong> a las <strong>{nextAppointment.time} hs</strong>, se habilitará automáticamente 30 minutos antes del horario (desde las {
                       (() => {
                         const apptDate = new Date(`${nextAppointment.date}T${nextAppointment.time}:00`)
                         const activationTime = new Date(apptDate.getTime() - 30 * 60 * 1000)
