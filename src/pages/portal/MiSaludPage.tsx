@@ -23,6 +23,253 @@ import { Card, CardContent } from '@/components/ui/card'
 import { useAuth } from '@/src/context/AuthContext'
 import { API_BASE_URL } from '@/lib/api'
 import { io } from 'socket.io-client'
+import { jsPDF } from 'jspdf'
+
+const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+
+const downloadRecipePDF = (rec: any) => {
+  const doc = new jsPDF()
+  
+  // Header background
+  doc.setFillColor(79, 70, 229) // Brand color (Indigo 600)
+  doc.rect(0, 0, 210, 40, 'F')
+  
+  // Header text
+  doc.setTextColor(255, 255, 255)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(22)
+  doc.text('HEALTH GRID', 15, 20)
+  
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.text('Portal del Paciente - Receta Médica', 15, 28)
+  
+  // Document info
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  const recId = rec.id_receta?.toString() || rec._id || 'Desconocido'
+  doc.text(`Receta N°: ${recId.slice(-8).toUpperCase()}`, 195, 20, { align: 'right' })
+  
+  const emissionDate = rec.fechaEmision || rec.createdAt || new Date().toISOString()
+  const dateFormatted = emissionDate.split('T')[0].split('-').reverse().join('/')
+  doc.setFont('helvetica', 'normal')
+  doc.text(`Emitida el: ${dateFormatted}`, 195, 28, { align: 'right' })
+  
+  // Patient details block
+  doc.setTextColor(31, 41, 55)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.text('INFORMACIÓN DEL PACIENTE', 15, 55)
+  doc.line(15, 57, 195, 57)
+  
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.text(`Paciente: ID Paciente HCE: ${rec.id_paciente || 'Portal'}`, 15, 65)
+  doc.text(`Estado de la Receta: ${rec.estado || 'Activa'}`, 15, 71)
+  
+  // Prescription content block
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.text('PRESCRIPCIÓN MÉDICA', 15, 85)
+  doc.line(15, 87, 195, 87)
+  
+  // Medication Name box
+  doc.setFillColor(243, 244, 246)
+  doc.rect(15, 93, 180, 20, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.text(`Medicamento: ${rec.medicamento}`, 20, 100)
+  if (rec.dosis) {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.text(`Dosis: ${rec.dosis}`, 20, 107)
+  }
+  
+  // Indications
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.text('Indicaciones / Instrucciones de uso:', 15, 123)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  
+  const splitIndications = doc.splitTextToSize(rec.indicaciones || 'Sin indicaciones particulares', 180)
+  doc.text(splitIndications, 15, 129)
+  
+  // Pharmacological Alerts block
+  let currentY = 135 + (splitIndications.length * 5)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.text('Alertas Farmacológicas:', 15, currentY)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  
+  if (rec.alertas_farmacologicas && rec.alertas_farmacologicas.length > 0) {
+    currentY += 5
+    rec.alertas_farmacologicas.forEach((alerta: any) => {
+      doc.setFillColor(254, 242, 242)
+      doc.rect(15, currentY, 180, 12, 'F')
+      doc.setTextColor(220, 38, 38)
+      doc.setFont('helvetica', 'bold')
+      doc.text(`[${alerta.tipo}]`, 20, currentY + 7)
+      doc.setFont('helvetica', 'normal')
+      doc.text(alerta.descripcion, 60, currentY + 7)
+      currentY += 15
+    })
+  } else {
+    doc.text('No hay alertas farmacológicas indicadas para esta receta.', 15, currentY + 5)
+    currentY += 15
+  }
+  
+  // Doctor/Medic signature block
+  currentY = Math.max(currentY + 15, 200)
+  doc.setTextColor(31, 41, 55)
+  doc.line(120, currentY, 185, currentY)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.text(rec.medicoId || 'Médico Responsable', 152.5, currentY + 6, { align: 'center' })
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.text('Firma y Sello del Profesional', 152.5, currentY + 11, { align: 'center' })
+  
+  // Footer
+  doc.setFontSize(8)
+  doc.setTextColor(156, 163, 175)
+  doc.text('Documento de carácter digital generado a través de Health Grid.', 105, 280, { align: 'center' })
+  
+  doc.save(`receta_${recId.slice(-6).toUpperCase()}.pdf`)
+}
+
+const downloadLabPDF = (lab: any) => {
+  const doc = new jsPDF()
+  
+  // Header background
+  doc.setFillColor(79, 70, 229) // Indigo 600
+  doc.rect(0, 0, 210, 40, 'F')
+  
+  // Header text
+  doc.setTextColor(255, 255, 255)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(22)
+  doc.text('HEALTH GRID', 15, 20)
+  
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.text('Portal del Paciente - Informe de Laboratorio', 15, 28)
+  
+  // Document info
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  const labId = lab.id?.toString() || lab._id || 'Desconocido'
+  doc.text(`Informe N°: ${labId.slice(-8).toUpperCase()}`, 195, 20, { align: 'right' })
+  
+  const reqDate = lab.fechaSolicitud || lab.createdAt || new Date().toISOString()
+  const dateFormatted = new Date(reqDate).toLocaleDateString('es-AR')
+  doc.setFont('helvetica', 'normal')
+  doc.text(`Fecha: ${dateFormatted}`, 195, 28, { align: 'right' })
+  
+  // Patient Details Block
+  doc.setTextColor(31, 41, 55)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.text('DATOS DEL PACIENTE', 15, 55)
+  doc.line(15, 57, 195, 57)
+  
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.text(`Paciente: ${lab.pacienteNombre || 'Paciente Portal'}`, 15, 65)
+  doc.text(`DNI: ${lab.pacienteDni || 'No registrado'}`, 15, 71)
+  doc.text(`Edad: ${lab.pacienteEdad || '-'} años   |   Sexo: ${lab.pacienteSexo || '-'}`, 15, 77)
+  doc.text(`Prioridad de la orden: ${lab.prioridad || 'RUTINA'}`, 15, 83)
+  
+  // Results Table header
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.text('RESULTADOS DE ANÁLISIS CLÍNICOS', 15, 97)
+  doc.line(15, 99, 195, 99)
+  
+  // Table columns
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Parámetro / Analito', 15, 106)
+  doc.text('Valor Hallado', 100, 106)
+  doc.text('Rango Referencia', 145, 106)
+  doc.text('Estado', 180, 106)
+  doc.line(15, 109, 195, 109)
+  
+  doc.setFont('helvetica', 'normal')
+  let currentY = 116
+  
+  if (lab.resultados && lab.resultados.length > 0) {
+    lab.resultados.forEach((r: any) => {
+      // Background shading for criticals/out of range
+      if (r.esCritico) {
+        doc.setFillColor(254, 242, 242)
+        doc.rect(15, currentY - 5, 180, 8, 'F')
+        doc.setTextColor(220, 38, 38)
+      } else if (r.fueraDeRango) {
+        doc.setFillColor(255, 251, 235)
+        doc.rect(15, currentY - 5, 180, 8, 'F')
+        doc.setTextColor(217, 119, 6)
+      } else {
+        doc.setTextColor(31, 41, 55)
+      }
+      
+      doc.text(r.nombreAnalito || 'Analito', 15, currentY)
+      doc.text(`${r.valor} ${r.unidadMedida}`, 100, currentY)
+      
+      const minMax = r.rangosReferencia?.length > 0 
+        ? `${r.rangosReferencia[0].valorMinimo} - ${r.rangosReferencia[0].valorMaximo}`
+        : '-'
+      doc.text(minMax, 145, currentY)
+      
+      const statusText = r.esCritico ? 'CRÍTICO' : (r.fueraDeRango ? 'ALTO/BAJO' : 'NORMAL')
+      doc.text(statusText, 180, currentY)
+      
+      currentY += 10
+    })
+  } else {
+    doc.setTextColor(107, 114, 128)
+    doc.text('No se han registrado resultados médicos aún.', 15, currentY)
+    currentY += 10
+  }
+  
+  doc.setTextColor(31, 41, 55)
+  doc.line(15, currentY - 4, 195, currentY - 4)
+  
+  // Technical observations
+  const obs = lab.resultados?.filter((r: any) => r.observacionTecnica) || []
+  if (obs.length > 0) {
+    doc.setFont('helvetica', 'bold')
+    doc.text('Observaciones Técnicas:', 15, currentY + 3)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    currentY += 8
+    obs.forEach((r: any) => {
+      const splitObs = doc.splitTextToSize(`* ${r.nombreAnalito}: ${r.observacionTecnica}`, 180)
+      doc.text(splitObs, 15, currentY)
+      currentY += (splitObs.length * 5)
+    })
+    currentY += 5
+  }
+  
+  // Bioq signature block
+  currentY = Math.max(currentY + 20, 200)
+  const bioq = lab.resultados?.[0]?.bioquimicoResponsable || 'Bioquímico a cargo'
+  doc.line(120, currentY, 185, currentY)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.text(bioq, 152.5, currentY + 6, { align: 'center' })
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.text('Firma del Bioquímico Responsable', 152.5, currentY + 11, { align: 'center' })
+  
+  // Footer
+  doc.setFontSize(8)
+  doc.setTextColor(156, 163, 175)
+  doc.text('Documento de carácter digital generado a través de Health Grid.', 105, 280, { align: 'center' })
+  
+  doc.save(`informe_laboratorio_${labId.slice(-6).toUpperCase()}.pdf`)
+}
 
 type Tab = 'turnos' | 'recetas' | 'laboratorio'
 
@@ -318,7 +565,7 @@ function PrescriptionsTab() {
                 <p className="text-xs text-muted-foreground mt-1">Indicaciones: {rec.indicaciones}</p>
               </div>
 
-              {rec.alertas_farmacologicas && rec.alertas_farmacologicas.length > 0 && (
+              {rec.alertas_farmacologicas && rec.alertas_farmacologicas.length > 0 ? (
                 <div className="mt-4">
                   <h4 className="text-xs font-semibold text-destructive uppercase tracking-wider mb-2">
                     Alertas Farmacológicas
@@ -330,11 +577,21 @@ function PrescriptionsTab() {
                     </div>
                   ))}
                 </div>
+              ) : (
+                <div className="mt-4">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                    Alertas Farmacológicas
+                  </h4>
+                  <p className="text-xs text-muted-foreground italic bg-muted/40 p-2.5 rounded-lg">
+                    No hay alertas farmacológicas indicadas.
+                  </p>
+                </div>
               )}
               <Button
                 variant="outline"
                 size="sm"
                 className="mt-2 border-border text-foreground hover:bg-muted"
+                onClick={() => downloadRecipePDF(rec)}
               >
                 <Download className="w-3.5 h-3.5 mr-2" />
                 Descargar PDF
@@ -584,6 +841,7 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
                 variant="outline"
                 size="sm"
                 className="mt-4 border-border text-foreground hover:bg-muted"
+                onClick={() => downloadLabPDF(lab)}
               >
                 <Download className="w-3.5 h-3.5 mr-2" />
                 Descargar informe
