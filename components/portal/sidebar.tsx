@@ -11,15 +11,15 @@ import {
   X,
   Activity,
   LogOut,
-  Database,
   FileText,
   Calendar,
   Pill,
   FlaskConical,
-  Image,
-  Bed,
-  Receipt,
-  ExternalLink,
+  Scan,
+  BedDouble,
+  Users,
+  Monitor,
+  Settings,
   Loader2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -29,61 +29,17 @@ import { useAuth } from "@/src/context/AuthContext"
 import { apiUrl } from "@/lib/api"
 import { toast } from "sonner"
 
-const externalModules = [
-  {
-    label: "Core M10",
-    description: "Gestión central de la red",
-    icon: Database,
-    baseUrl: "https://healthgrid.cantero.ar/auth/sso?ticket=",
-  },
-  {
-    label: "Historia Clínica (HCE)",
-    description: "Fichas, antecedentes y evolución",
-    icon: FileText,
-    baseUrl: "https://healthgrid-hce-frontend-olive.vercel.app/auth/sso?ticket=",
-  },
-  {
-    label: "Turnos M2",
-    description: "Reserva y gestión de citas",
-    icon: Calendar,
-    baseUrl: "https://turnos.solefrancisco.com/auth/sso",
-  },
-  {
-    label: "Farmacia M3",
-    description: "Medicamentos y recetas",
-    icon: Pill,
-    baseUrl: "https://front-modulo3-farmacia.vercel.app",
-  },
-  {
-    label: "Laboratorio M5",
-    description: "Análisis y órdenes de estudio",
-    icon: FlaskConical,
-    baseUrl: "https://modulo-laboratorio.up.railway.app/auth/sso?ticket=",
-  },
-  {
-    label: "Imágenes M6",
-    description: "Estudios de diagnóstico",
-    icon: Image,
-    baseUrl: "https://uade-da-2-frontend.vercel.app/auth/sso?ticket=TICKET_REAL&redirect=/MENU",
-  },
-  {
-    label: "Internaciones M9",
-    description: "Gestión de camas y estadías",
-    icon: Bed,
-    baseUrl: "https://internaciones-y-camas.vercel.app/auth/sso?ticket=",
-  },
-  {
-    label: "Facturación M7",
-    description: "Historial de pagos y cuentas",
-    icon: Receipt,
-    baseUrl: "https://modulo7-frontend.onrender.com/auth/sso?ticket=",
-  },
-  {
-    label: "Monitoreo M11",
-    description: "IoT y seguimiento continuo",
-    icon: Activity,
-    baseUrl: "https://dzp5goz8czibt.cloudfront.net/auth/sso?ticket=<ticket>&redirect=/login",
-  },
+const networkModules = [
+  { id: 1, label: "Historia Clínica", icon: FileText, baseUrl: "https://healthgrid-hce-frontend-olive.vercel.app/auth/sso?ticket=" },
+  { id: 2, label: "Turnos y Agendas", icon: Calendar, baseUrl: "https://turnos.solefrancisco.com/auth/sso" },
+  { id: 3, label: "Farmacia e Insumos", icon: Pill, baseUrl: "https://front-modulo3-farmacia.vercel.app" },
+  { id: 4, label: "Laboratorio", icon: FlaskConical, baseUrl: "https://modulo-laboratorio.up.railway.app/auth/sso?ticket=" },
+  { id: 5, label: "Diagnóstico por Imágenes", icon: Scan, baseUrl: "https://uade-da-2-frontend.vercel.app/auth/sso?ticket=TICKET_REAL&redirect=/MENU" },
+  { id: 6, label: "Internación y Camas", icon: BedDouble, baseUrl: "https://internaciones-y-camas.vercel.app/auth/sso?ticket=" },
+  { id: 7, label: "Facturación", icon: CreditCard, baseUrl: "https://modulo7-frontend.onrender.com/auth/sso?ticket=" },
+  { id: 8, label: "Portal del Paciente", icon: Users, baseUrl: null, isCurrent: true },
+  { id: 9, label: "Monitoreo", icon: Monitor, baseUrl: "https://dzp5goz8czibt.cloudfront.net/auth/sso?ticket=<ticket>&redirect=/login" },
+  { id: 10, label: "Core", icon: Settings, baseUrl: "https://healthgrid.cantero.ar/auth/sso?ticket=" },
 ]
 
 const navItems = [
@@ -126,8 +82,8 @@ export function Sidebar() {
   const navigate = useNavigate()
   const { user, logout, unreadCount, setUnreadCount } = useAuth()
 
-  const handleExternalRedirect = async (label: string, baseUrl: string) => {
-    if (!user?.token) return
+  const handleExternalRedirect = async (label: string, baseUrl: string | null) => {
+    if (!user?.token || !baseUrl) return
     const toastId = toast.loading(`Iniciando sesión segura en ${label}...`)
     try {
       setRedirectingLabel(label)
@@ -235,7 +191,6 @@ export function Sidebar() {
 
       {/* Scrollable Nav Area */}
       <div className="flex-1 overflow-y-auto px-3 py-4">
-        {/* Unified Nav */}
         <nav className="space-y-1" aria-label="Navegación principal">
           {navItems.map(({ href, label, icon: Icon, description }) => {
             const isActive = pathname.startsWith(href)
@@ -283,33 +238,46 @@ export function Sidebar() {
               </NavLink>
             )
           })}
-
-          {externalModules.map(({ label, description, icon: Icon, baseUrl }) => {
-            const isRedirecting = redirectingLabel === label
-            return (
-              <button
-                key={label}
-                onClick={() => handleExternalRedirect(label, baseUrl)}
-                disabled={redirectingLabel !== null}
-                className="flex items-center gap-3 px-3 py-3 rounded-lg transition-colors group relative text-sidebar-foreground hover:bg-sidebar-accent w-full text-left disabled:opacity-50"
-              >
-                {isRedirecting ? (
-                  <Loader2 className="w-5 h-5 text-primary animate-spin shrink-0" />
-                ) : (
-                  <Icon className="w-5 h-5 text-sidebar-foreground/60 group-hover:text-primary transition-colors shrink-0" />
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{label}</span>
-                  </div>
-                  <p className="text-xs truncate text-sidebar-foreground/50">
-                    {description}
-                  </p>
-                </div>
-              </button>
-            )
-          })}
         </nav>
+
+        {/* Network Modules Section */}
+        <div className="mt-8">
+          <p className="text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-widest px-2 mb-2">
+            Módulos
+          </p>
+          <div className="space-y-0.5">
+            {networkModules.map(({ id, label, icon: Icon, baseUrl, isCurrent }) => {
+              const isRedirecting = redirectingLabel === label
+
+              if (isCurrent) {
+                return (
+                  <div key={id} className="flex items-center gap-2.5 px-3 py-2 rounded-lg w-full text-left bg-primary/20 text-sidebar-foreground cursor-default">
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-sm font-medium flex-1 truncate">{label}</span>
+                    <span className="text-[10px] text-sidebar-foreground/40 ml-auto">{id}</span>
+                  </div>
+                )
+              }
+
+              return (
+                <button
+                  key={id}
+                  onClick={() => baseUrl && handleExternalRedirect(label, baseUrl)}
+                  disabled={isRedirecting}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors w-full text-left disabled:opacity-50 group"
+                >
+                  {isRedirecting ? (
+                    <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />
+                  ) : (
+                    <Icon className="w-4 h-4 flex-shrink-0 group-hover:text-primary transition-colors" />
+                  )}
+                  <span className="text-sm flex-1 truncate">{label}</span>
+                  <span className="text-[10px] text-sidebar-foreground/40 group-hover:text-sidebar-foreground/60 ml-auto">{id}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Footer */}
@@ -370,3 +338,4 @@ export function Sidebar() {
     </>
   )
 }
+
