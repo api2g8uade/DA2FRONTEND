@@ -7,10 +7,11 @@ import {
   useEffect,
   type ReactNode,
 } from 'react'
-import { useAuth } from './AuthContext'
+import { useAuth, type AuthUser } from './AuthContext'
 import { fetchRecipes } from '@/lib/api/recipes'
 import { fetchAppointments, type UpcomingAppointment } from '@/lib/api/appointments'
 import { fetchLabResults, type LabResult } from '@/lib/api/labResults'
+import { apiUrl } from '@/lib/api'
 import type { Recipe } from '@/lib/types/recipes'
 
 type HealthContextValue = {
@@ -35,7 +36,7 @@ type HealthContextValue = {
 const HealthContext = createContext<HealthContextValue | null>(null)
 
 export function HealthProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth()
+  const { user, updateUser } = useAuth()
 
   // Recetas
   const [recipes, setRecipes] = useState<Recipe[]>([])
@@ -51,6 +52,33 @@ export function HealthProvider({ children }: { children: ReactNode }) {
   const [labResults, setLabResults] = useState<LabResult[]>([])
   const [loadingLab, setLoadingLab] = useState(false)
   const [labError, setLabError] = useState<string | null>(null)
+
+  const refreshProfile = useCallback(async () => {
+    if (!user?.token) return
+    try {
+      const response = await fetch(apiUrl('/api/perfil'), {
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        if (data && data.user) {
+          const { first_name, last_name, nombre, apellido, dni, telefono, obraSocial, nroAfiliado, fechaNacimiento } = data.user
+          const updatedData: Partial<AuthUser> = {}
+          if (nombre || first_name) updatedData.nombre = nombre || first_name
+          if (apellido || last_name) updatedData.apellido = apellido || last_name
+          if (dni) updatedData.dni = dni
+          if (telefono) updatedData.telefono = telefono
+          if (obraSocial) updatedData.obraSocial = obraSocial
+          if (nroAfiliado) updatedData.nroAfiliado = nroAfiliado
+          if (fechaNacimiento) updatedData.fechaNacimiento = fechaNacimiento
+          
+          updateUser(updatedData)
+        }
+      }
+    } catch (err) {
+      console.error('[HealthContext] Error pre-cargando perfil:', err)
+    }
+  }, [user?.token, updateUser])
 
   const refreshRecipes = useCallback(async () => {
     if (!user?.token) return
@@ -97,10 +125,11 @@ export function HealthProvider({ children }: { children: ReactNode }) {
   const refreshAll = useCallback(() => {
     if (!user?.token) return
     // Disparar todos en paralelo (no bloqueante entre sí)
+    refreshProfile()
     refreshRecipes()
     refreshAppointments()
     refreshLab()
-  }, [user?.token, refreshRecipes, refreshAppointments, refreshLab])
+  }, [user?.token, refreshProfile, refreshRecipes, refreshAppointments, refreshLab])
 
   // Pre-cargar datos tan pronto como el usuario inicie sesión
   useEffect(() => {
