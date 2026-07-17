@@ -42,6 +42,7 @@ export type LabResult = {
   origen: string
   estudiosSolicitados: EstudioSolicitado[]
   resultados: LabResultItem[]
+  createdAt?: string
 }
 
 export async function fetchLabResults(token: string): Promise<LabResult[]> {

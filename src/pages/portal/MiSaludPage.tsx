@@ -95,17 +95,19 @@ function AppointmentsTab({
                 <Badge
                   className={cn(
                     'text-xs capitalize',
-                    appt.status === 'CANCELLED' || appt.status === 'cancelado'
+                    ['cancelled', 'cancelado'].includes(appt.status?.toLowerCase())
                       ? 'bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/10'
-                      : (isPast
-                        ? 'bg-muted text-muted-foreground border-border'
-                        : (appt.status === 'confirmado' || appt.status === 'APROBADO' || appt.status === 'CONFIRMADO'
-                          ? 'bg-primary/10 text-primary border-primary/20'
-                          : 'bg-amber-50 text-amber-700 border-amber-200'))
+                      : (['checked_in', 'checked_in_at'].includes(appt.status?.toLowerCase())
+                        ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800'
+                        : (['completed', 'completado'].includes(appt.status?.toLowerCase())
+                          ? 'bg-muted text-muted-foreground border-border'
+                          : (['confirmado', 'confirmed', 'aprobado'].includes(appt.status?.toLowerCase())
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800'
+                            : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800')))
                   )}
                   variant="outline"
                 >
-                  {appt.status}
+                  {appt.status?.replace('_', ' ')}
                 </Badge>
                 {isOpen ? (
                   <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -274,9 +276,9 @@ function PrescriptionsTab() {
                 <div>
                   <p className="font-semibold text-foreground">Receta {recId.slice(-6)}</p>
                   {rec.medicoId && <p className="text-sm text-muted-foreground">{rec.medicoId}</p>}
-                  {rec.fechaEmision && (
+                  {(rec.fechaEmision || rec.createdAt) && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Emitida el {rec.fechaEmision.split('T')[0].split('-').reverse().join('/')}
+                      Emitida el {(rec.fechaEmision || rec.createdAt).split('T')[0].split('-').reverse().join('/')}
                     </p>
                   )}
                   {rec.id_evolucion && (
@@ -401,10 +403,34 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
   const [subTab, setSubTab] = useState<'ultimos' | 'historial'>('ultimos')
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
-  const ultimos = useMemo(() => {
-    const pending = labResults.filter(l => l.estado !== '3' && l.estado !== 'Finalizado')
-    const completed = labResults.filter(l => l.estado === '3' || l.estado === 'Finalizado')
-    return [...pending, ...completed.slice(0, 3)]
+  const { ultimos, historial } = useMemo(() => {
+    const active: LabResult[] = []
+    const history: LabResult[] = []
+
+    const threshold = new Date()
+    threshold.setDate(threshold.getDate() - 30)
+
+    for (const res of labResults) {
+      const isPendiente = res.estado !== '3' && res.estado !== 'Finalizado'
+      const reqDate = res.fechaSolicitud ? new Date(res.fechaSolicitud) : (res.createdAt ? new Date(res.createdAt) : new Date())
+      
+      if (isPendiente || reqDate >= threshold) {
+        active.push(res)
+      } else {
+        history.push(res)
+      }
+    }
+
+    const sortByDate = (a: LabResult, b: LabResult) => {
+      const dateA = a.fechaSolicitud ? new Date(a.fechaSolicitud).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0)
+      const dateB = b.fechaSolicitud ? new Date(b.fechaSolicitud).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0)
+      return dateB - dateA
+    }
+
+    return {
+      ultimos: active.sort(sortByDate),
+      historial: history.sort(sortByDate)
+    }
   }, [labResults])
 
   const renderLabCard = (lab: LabResult) => {
@@ -502,7 +528,12 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
                         </td>
 
                         <td className="py-2.5 text-right">
-                          {!r.fueraDeRango ? (
+                          {r.esCritico ? (
+                            <span className="flex items-center justify-end gap-1 text-destructive text-xs font-bold animate-pulse">
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              CRÍTICO
+                            </span>
+                          ) : (!r.fueraDeRango ? (
                             <span className="flex items-center justify-end gap-1 text-primary text-xs">
                               <CheckCircle className="w-3.5 h-3.5" />
                               Normal
@@ -512,7 +543,7 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
                               <AlertTriangle className="w-3.5 h-3.5" />
                               Fuera de rango
                             </span>
-                          )}
+                          ))}
                         </td>
                       </tr>
                     ))}
@@ -536,6 +567,19 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
                 </div>
               )}
 
+              {/* Lab Footer Details */}
+              <div className="mt-4 pt-3 border-t border-border/50 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
+                {lab.resultados?.[0]?.bioquimicoResponsable && (
+                  <p>Bioquímico: <span className="text-foreground font-medium">{lab.resultados[0].bioquimicoResponsable}</span></p>
+                )}
+                {lab.resultados?.[0]?.fechaCarga && (
+                  <p>Fecha de Análisis: <span className="text-foreground font-medium">{formatDate(lab.resultados[0].fechaCarga)}</span></p>
+                )}
+                {lab.prioridad && (
+                  <p>Prioridad: <span className={cn("font-medium", lab.prioridad === 'STAT' ? "text-destructive" : "text-foreground")}>{lab.prioridad}</span></p>
+                )}
+              </div>
+
               <Button
                 variant="outline"
                 size="sm"
@@ -551,7 +595,7 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
     )
   }
 
-  const listToShow = subTab === 'ultimos' ? ultimos : labResults
+  const listToShow = subTab === 'ultimos' ? ultimos : historial
 
   return (
     <div className="space-y-4">
@@ -699,7 +743,8 @@ export function MiSaludPage() {
     })
 
     for (const appt of sorted) {
-      if (isUpcoming(appt.date) && appt.status !== 'CANCELLED' && appt.status !== 'cancelado') {
+      const isPastStatus = ['cancelado', 'cancelled', 'completed', 'completado', 'checked_in', 'checked_in_at'].includes(appt.status?.toLowerCase())
+      if (isUpcoming(appt.date) && !isPastStatus) {
         upcoming.push(appt)
       } else {
         past.push(appt)

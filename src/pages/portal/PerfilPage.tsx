@@ -98,7 +98,9 @@ function ProfileTab() {
     { label: 'DNI', value: authenticatedDni },
     {
       label: 'Fecha de nacimiento',
-      value: new Date(authenticatedFechaNacimiento + 'T00:00:00').toLocaleDateString('es-AR'),
+      value: authenticatedFechaNacimiento && !isNaN(Date.parse(authenticatedFechaNacimiento))
+        ? new Date(authenticatedFechaNacimiento + 'T00:00:00').toLocaleDateString('es-AR')
+        : 'No registrada',
     },
     { label: 'Teléfono', value: authenticatedPhone || 'No registrado' },
     { label: 'Email', value: authenticatedEmail },

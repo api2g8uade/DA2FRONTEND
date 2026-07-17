@@ -9,6 +9,7 @@ export interface UpcomingAppointment {
   location: string
   modality: 'presencial' | 'virtual'
   status: string
+  ends_at?: string
 }
 
 export async function fetchAppointments(token: string): Promise<UpcomingAppointment[]> {
@@ -38,6 +39,7 @@ export async function fetchAppointments(token: string): Promise<UpcomingAppointm
       location: t.medical_center?.name || 'Centro Médico',
       modality: (t.modality === 'virtual' || t.medical_center?.name === 'Sala Virtual' || !!t.linkVideollamada) ? 'virtual' : 'presencial',
       status: status,
+      ends_at: t.ends_at,
     }
   })
 }
