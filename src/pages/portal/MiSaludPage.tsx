@@ -620,7 +620,6 @@ function PrescriptionsTab() {
               <div className="bg-muted rounded-lg p-3">
                 <p className="text-sm font-semibold text-foreground">{rec.medicamento}</p>
                 {rec.dosis && <p className="text-xs text-muted-foreground mt-0.5">Dosis: {rec.dosis}</p>}
-                {renderIndications(rec.indicaciones)}
               </div>
 
               {rec.alertas_farmacologicas && rec.alertas_farmacologicas.length > 0 ? (
