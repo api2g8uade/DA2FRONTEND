@@ -16,7 +16,7 @@ import {
 import { cn } from '@/lib/utils'
 import { fetchLabResults, type LabResult } from '@/lib/api/labResults'
 import { fetchAppointments, type UpcomingAppointment } from '@/lib/api/appointments'
-import { useRecipes } from '@/src/context/RecipesContext'
+import { useHealth } from '@/src/context/HealthContext'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -977,53 +977,31 @@ const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
 
 export function MiSaludPage() {
   const [activeTab, setActiveTab] = useState<Tab>('turnos')
-  const { recipes, refreshRecipes } = useRecipes()
   const { user } = useAuth()
+  const {
+    recipes,
+    loadingRecipes,
+    recipesError,
+    refreshRecipes,
+    appointments,
+    loadingAppointments,
+    appointmentsError,
+    refreshAppointments,
+    labResults,
+    loadingLab,
+    labError,
+    refreshLab,
+    refreshAll,
+  } = useHealth()
 
-  const [appointments, setAppointments] = useState<UpcomingAppointment[]>([])
-  const [loadingAppointments, setLoadingAppointments] = useState(true)
-  const [appointmentsError, setAppointmentsError] = useState<string | null>(null)
+  const loading = loadingRecipes || loadingAppointments || loadingLab
 
-  const [labResults, setLabResults] = useState<LabResult[]>([])
-  const [loadingLab, setLoadingLab] = useState(true)
-  const [labError, setLabError] = useState<string | null>(null)
-
-  const refreshAllData = useCallback(async () => {
-    if (!user?.token) return
-    
-    // Cargar turnos
-    try {
-      setLoadingAppointments(true)
-      setAppointmentsError(null)
-      const data = await fetchAppointments(user.token)
-      setAppointments(data)
-    } catch (err: any) {
-      console.error('Error fetching appointments:', err)
-      setAppointmentsError('No se pudieron cargar los turnos.')
-    } finally {
-      setLoadingAppointments(false)
-    }
-
-    // Cargar laboratorios
-    try {
-      setLoadingLab(true)
-      setLabError(null)
-      const data = await fetchLabResults(user.token)
-      setLabResults(data)
-    } catch (err: any) {
-      console.error('Error fetching lab results:', err)
-      setLabError('No se pudieron cargar los laboratorios.')
-    } finally {
-      setLoadingLab(false)
-    }
-
-    // Recetas
-    refreshRecipes()
-  }, [user, refreshRecipes])
-
+  // Realizar un refresh silencioso al montar la pestaña por si hay datos frescos
   useEffect(() => {
-    refreshAllData()
-  }, [refreshAllData])
+    if (user?.token) {
+      refreshAll()
+    }
+  }, [user?.token, refreshAll])
 
   // Escuchar notificaciones vía WebSockets para sincronizar en tiempo real
   useEffect(() => {
@@ -1039,8 +1017,8 @@ export function MiSaludPage() {
     socket.on('nueva_notificacion', (notif: any) => {
       console.log('[mi-salud] Notificación recibida en tiempo real:', notif)
       // Recargar datos silenciosamente
-      fetchAppointments(user.token).then(setAppointments).catch(() => {})
-      fetchLabResults(user.token).then(setLabResults).catch(() => {})
+      refreshAppointments()
+      refreshLab()
       refreshRecipes()
     })
 
@@ -1049,7 +1027,7 @@ export function MiSaludPage() {
       socket.disconnect()
       console.log('[mi-salud] WebSocket de recarga en tiempo real desconectado.')
     }
-  }, [user, refreshRecipes])
+  }, [user, refreshAppointments, refreshLab, refreshRecipes])
 
   // Clasificar turnos
   const { upcomingAppointments, pastAppointments } = useMemo(() => {
@@ -1156,7 +1134,7 @@ export function MiSaludPage() {
           )}
           {activeTab === 'recetas' && <PrescriptionsTab />}
           {activeTab === 'laboratorio' && (
-            <LabTab labResults={labResults} refreshLab={refreshAllData} />
+            <LabTab labResults={labResults} refreshLab={refreshLab} />
           )}
         </>
       )}

@@ -1,12 +1,12 @@
-import { useRecipes as useRecipesContext } from '../src/context/RecipesContext'
+import { useHealth } from '../src/context/HealthContext'
 import { useEffect } from 'react'
 
 export function useRecipes() {
-  const { recipes, loading, error, refreshRecipes } = useRecipesContext()
+  const { recipes, loadingRecipes, recipesError, refreshRecipes } = useHealth()
 
   useEffect(() => {
     refreshRecipes()
   }, [refreshRecipes])
 
-  return { recipes, loading, error, refresh: refreshRecipes }
+  return { recipes, loading: loadingRecipes, error: recipesError, refresh: refreshRecipes }
 }
