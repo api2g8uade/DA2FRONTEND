@@ -727,10 +727,38 @@ function PrescriptionsTab() {
   )
 }
 
+// Map estado string/number from M4 to display config
+// Flujo: Pendiente(0) -> EnProceso(1) -> Finalizada(2) -> Entregada(3)
+function getEstadoConfig(estado: string | number | undefined) {
+  const s = String(estado ?? '').toLowerCase().replace(/\s/g, '')
+  if (s === '0' || s === 'pendiente') return { label: 'Pendiente', color: 'bg-amber-100 text-amber-700 border-amber-200', dot: 'bg-amber-500' }
+  if (s === '1' || s === 'enproceso') return { label: 'En Proceso', color: 'bg-blue-100 text-blue-700 border-blue-200', dot: 'bg-blue-500' }
+  if (s === '2' || s === 'finalizada') return { label: 'Finalizada', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' }
+  if (s === '3' || s === 'entregada' || s === 'finalizado') return { label: 'Entregada', color: 'bg-primary/10 text-primary border-primary/20', dot: 'bg-primary' }
+  return { label: 'Pendiente', color: 'bg-amber-100 text-amber-700 border-amber-200', dot: 'bg-amber-500' }
+}
+
 function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLab: () => void }) {
   const { user } = useAuth()
   const [subTab, setSubTab] = useState<'ultimos' | 'historial'>('ultimos')
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [newResultIds, setNewResultIds] = useState<Set<string>>(new Set())
+
+  // Mark newly arrived results (from socket) with a highlight
+  useEffect(() => {
+    if (labResults.length === 0) return
+    const finalizadas = labResults.filter(l => {
+      const s = String(l.estado ?? '').toLowerCase().replace(/\s/g, '')
+      return s === '2' || s === 'finalizada' || s === '3' || s === 'entregada' || s === 'finalizado'
+    })
+    const ids = new Set(finalizadas.map(l => String(l.id ?? l._id)))
+    setNewResultIds(prev => {
+      // Only mark as new those that weren't finalizadas before
+      const added = new Set<string>()
+      ids.forEach(id => { if (!prev.has(id)) added.add(id) })
+      return ids
+    })
+  }, [labResults])
 
   const { ultimos, historial } = useMemo(() => {
     const active: LabResult[] = []
@@ -740,10 +768,11 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
     threshold.setDate(threshold.getDate() - 30)
 
     for (const res of labResults) {
-      const isPendiente = res.estado !== '3' && res.estado !== 'Finalizado'
+      const s = String(res.estado ?? '').toLowerCase().replace(/\s/g, '')
+      const isFinished = s === '3' || s === 'entregada' || s === 'finalizado'
       const reqDate = res.fechaSolicitud ? new Date(res.fechaSolicitud) : (res.createdAt ? new Date(res.createdAt) : new Date())
       
-      if (isPendiente || reqDate >= threshold) {
+      if (!isFinished || reqDate >= threshold) {
         active.push(res)
       } else {
         history.push(res)
@@ -765,12 +794,22 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
   const renderLabCard = (lab: LabResult) => {
     const labId = lab.id?.toString() || lab._id
     const isOpen = expandedId === labId
-    const isPendiente = lab.estado !== '3' && lab.estado !== 'Finalizado'
+    const estadoConfig = getEstadoConfig(lab.estado)
+    const isFinished = ['finalizada', 'entregada', 'finalizado', '2', '3'].includes(String(lab.estado ?? '').toLowerCase().replace(/\s/g, ''))
+    const isNew = newResultIds.has(labId) && isFinished
+    const hasResults = (lab.resultados?.length ?? 0) > 0
+    const hasCritical = lab.resultados?.some(r => r.esCritico)
+    const hasOutOfRange = lab.resultados?.some(r => r.fueraDeRango && !r.esCritico)
+    const studyNames = lab.estudiosSolicitados?.map((e: any) => e.nombre).filter(Boolean) ?? []
 
     return (
       <Card
         key={labId}
-        className={cn("border border-border shadow-none overflow-hidden transition-all", !isPendiente && "bg-muted/10 opacity-75")}
+        className={cn(
+          "border border-border shadow-none overflow-hidden transition-all",
+          isNew && "ring-2 ring-emerald-400/60",
+          !isFinished && "opacity-90"
+        )}
       >
         <button
           className="w-full text-left"
@@ -778,31 +817,61 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
           aria-expanded={isOpen}
         >
           <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div className="flex gap-4">
-                <div className={cn("shrink-0 w-12 h-12 rounded-xl flex items-center justify-center", isPendiente ? "bg-amber-100 text-amber-700 font-bold" : "bg-primary/10 text-primary")}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex gap-4 min-w-0 flex-1">
+                <div className={cn(
+                  "shrink-0 w-12 h-12 rounded-xl flex items-center justify-center",
+                  hasCritical ? "bg-red-100 text-red-700" : hasOutOfRange ? "bg-amber-100 text-amber-700" : isFinished ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                )}>
                   <FlaskConical className="w-6 h-6" />
                 </div>
 
-                <div>
-                  <p className="font-semibold text-foreground">
-                    {lab.estudiosSolicitados?.[0]?.nombre || 'Orden de Laboratorio'}
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <p className="font-semibold text-foreground">
+                      {studyNames.length > 0 ? studyNames[0] : 'Orden de Laboratorio'}
+                    </p>
+                    {isNew && (
+                      <span className="text-[10px] font-bold uppercase tracking-wide bg-emerald-500 text-white px-2 py-0.5 rounded-full animate-pulse">
+                        Nuevo
+                      </span>
+                    )}
+                    {hasCritical && (
+                      <span className="flex items-center gap-1 text-[10px] font-bold uppercase bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                        <AlertTriangle className="w-3 h-3" /> Crítico
+                      </span>
+                    )}
+                  </div>
 
-                  <p className="text-sm text-muted-foreground">
-                    Estado: {isPendiente ? 'Pendiente' : 'Finalizado'}
-                  </p>
+                  {studyNames.length > 1 && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      + {studyNames.slice(1).join(', ')}
+                    </p>
+                  )}
 
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {formatDate(lab.fechaSolicitud)}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <span className={cn('inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border', estadoConfig.color)}>
+                      <span className={cn('w-1.5 h-1.5 rounded-full', estadoConfig.dot)} />
+                      {estadoConfig.label}
+                    </span>
+                    {lab.prioridad && lab.prioridad !== 'Normal' && lab.prioridad !== '0' && (
+                      <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full border',
+                        lab.prioridad === 'STAT' || lab.prioridad === '2' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-muted text-muted-foreground border-border'
+                      )}>
+                        {lab.prioridad === '2' ? 'STAT' : lab.prioridad === '1' ? 'URGENTE' : lab.prioridad}
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(lab.fechaSolicitud)}
+                    </span>
+                  </div>
                 </div>
               </div>
 
               {isOpen ? (
-                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0 mt-1" />
               ) : (
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 mt-1" />
               )}
             </div>
           </CardContent>
@@ -811,101 +880,134 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
         {isOpen && (
           <div className="px-5 pb-5 border-t border-border bg-muted/5">
             <div className="pt-4">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left text-xs font-semibold text-muted-foreground pb-2 pr-4">
-                        Parámetro
-                      </th>
-
-                      <th className="text-right text-xs font-semibold text-muted-foreground pb-2 pr-4">
-                        Valor
-                      </th>
-
-                      <th className="text-right text-xs font-semibold text-muted-foreground pb-2 pr-4">
-                        Referencia
-                      </th>
-
-                      <th className="text-right text-xs font-semibold text-muted-foreground pb-2">
-                        Estado
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {lab.resultados?.map((r, i) => (
-                      <tr
-                        key={i}
-                        className="border-b border-border/50 last:border-0"
-                      >
-                        <td className="py-2.5 pr-4 text-foreground">
-                          {r.nombreAnalito}
-                        </td>
-
-                        <td className="py-2.5 pr-4 text-right font-mono font-semibold text-foreground">
-                          {r.valor}{' '}
-                          <span className="text-muted-foreground font-normal">
-                            {r.unidadMedida}
+              {/* Estado del flujo — timeline */}
+              <div className="mb-5">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Flujo de la orden</p>
+                <div className="flex items-center gap-0">
+                  {(['Pendiente', 'En Proceso', 'Finalizada', 'Entregada'] as const).map((step, idx) => {
+                    const stepStates = ['pendiente', 'enproceso', 'finalizada', 'entregada']
+                    const currentIdx = ['0','pendiente','1','enproceso','2','finalizada','3','entregada','finalizado'].indexOf(
+                      String(lab.estado ?? '').toLowerCase().replace(/\s/g, '')
+                    )
+                    const mappedIdx = currentIdx <= 1 ? 0 : currentIdx <= 3 ? 1 : currentIdx <= 5 ? 2 : 3
+                    const isActive = idx === mappedIdx
+                    const isDone = idx < mappedIdx
+                    return (
+                      <div key={step} className="flex items-center flex-1 last:flex-none">
+                        <div className="flex flex-col items-center">
+                          <div className={cn(
+                            'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all',
+                            isDone ? 'bg-primary border-primary text-primary-foreground' :
+                            isActive ? 'bg-primary/10 border-primary text-primary' :
+                            'bg-muted border-border text-muted-foreground'
+                          )}>
+                            {isDone ? <CheckCircle className="w-4 h-4" /> : idx + 1}
+                          </div>
+                          <span className={cn('text-[10px] mt-1 font-medium', isActive ? 'text-primary' : isDone ? 'text-foreground' : 'text-muted-foreground')}>
+                            {step}
                           </span>
-                        </td>
-
-                        <td className="py-2.5 pr-4 text-right text-muted-foreground">
-                          {r.rangosReferencia?.length > 0 
-                            ? `${r.rangosReferencia[0].valorMinimo} - ${r.rangosReferencia[0].valorMaximo}`
-                            : '-'}
-                        </td>
-
-                        <td className="py-2.5 text-right">
-                          {r.esCritico ? (
-                            <span className="flex items-center justify-end gap-1 text-destructive text-xs font-bold animate-pulse">
-                              <AlertTriangle className="w-3.5 h-3.5" />
-                              CRÍTICO
-                            </span>
-                          ) : (!r.fueraDeRango ? (
-                            <span className="flex items-center justify-end gap-1 text-primary text-xs">
-                              <CheckCircle className="w-3.5 h-3.5" />
-                              Normal
-                            </span>
-                          ) : (
-                            <span className="flex items-center justify-end gap-1 text-amber-600 text-xs">
-                              <AlertTriangle className="w-3.5 h-3.5" />
-                              Fuera de rango
-                            </span>
-                          ))}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                        {idx < 3 && (
+                          <div className={cn('flex-1 h-0.5 mx-1 mb-4', isDone ? 'bg-primary' : 'bg-border')} />
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
 
-              {lab.resultados?.some(r => r.observacionTecnica) && (
-                <div className="mt-4 rounded-lg bg-muted p-3">
-                  <p className="text-xs font-semibold text-muted-foreground mb-1">
-                    Observaciones
-                  </p>
+              {/* Resultados */}
+              {hasResults ? (
+                <>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Resultados de análisis</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left text-xs font-semibold text-muted-foreground pb-2 pr-4">Parámetro</th>
+                          <th className="text-right text-xs font-semibold text-muted-foreground pb-2 pr-4">Valor</th>
+                          <th className="text-right text-xs font-semibold text-muted-foreground pb-2 pr-4">Referencia</th>
+                          <th className="text-right text-xs font-semibold text-muted-foreground pb-2">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lab.resultados?.map((r, i) => (
+                          <tr
+                            key={i}
+                            className={cn(
+                              "border-b border-border/50 last:border-0",
+                              r.esCritico && "bg-red-50/50",
+                              !r.esCritico && r.fueraDeRango && "bg-amber-50/50"
+                            )}
+                          >
+                            <td className="py-2.5 pr-4 text-foreground font-medium">{r.nombreAnalito}</td>
 
-                  <ul className="text-sm text-foreground list-disc list-inside">
-                    {lab.resultados
-                      .filter(r => r.observacionTecnica)
-                      .map((r, i) => (
-                        <li key={i}>{r.nombreAnalito}: {r.observacionTecnica}</li>
-                      ))}
-                  </ul>
+                            <td className={cn(
+                              "py-2.5 pr-4 text-right font-mono font-bold",
+                              r.esCritico ? "text-red-600" : r.fueraDeRango ? "text-amber-600" : "text-foreground"
+                            )}>
+                              {r.valor}{' '}
+                              <span className="text-muted-foreground font-normal text-xs">{r.unidadMedida}</span>
+                            </td>
+
+                            <td className="py-2.5 pr-4 text-right text-muted-foreground text-xs">
+                              {r.rangosReferencia?.length > 0
+                                ? `${r.rangosReferencia[0].valorMinimo} – ${r.rangosReferencia[0].valorMaximo}`
+                                : '—'}
+                            </td>
+
+                            <td className="py-2.5 text-right">
+                              {r.esCritico ? (
+                                <span className="inline-flex items-center gap-1 text-red-600 text-xs font-bold bg-red-100 px-2 py-0.5 rounded-full animate-pulse">
+                                  <AlertTriangle className="w-3 h-3" /> CRÍTICO
+                                </span>
+                              ) : r.fueraDeRango ? (
+                                <span className="inline-flex items-center gap-1 text-amber-600 text-xs font-semibold bg-amber-100 px-2 py-0.5 rounded-full">
+                                  <AlertTriangle className="w-3 h-3" /> Fuera rango
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-emerald-600 text-xs bg-emerald-100 px-2 py-0.5 rounded-full">
+                                  <CheckCircle className="w-3 h-3" /> Normal
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {lab.resultados?.some(r => r.observacionTecnica) && (
+                    <div className="mt-4 rounded-lg bg-muted p-3">
+                      <p className="text-xs font-semibold text-muted-foreground mb-1">Observaciones técnicas</p>
+                      <ul className="text-sm text-foreground list-disc list-inside space-y-0.5">
+                        {lab.resultados
+                          .filter(r => r.observacionTecnica)
+                          .map((r, i) => (
+                            <li key={i} className="text-xs">{r.nombreAnalito}: {r.observacionTecnica}</li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="py-4 text-center text-sm text-muted-foreground">
+                  {['0', 'pendiente', '1', 'enproceso'].includes(String(lab.estado ?? '').toLowerCase().replace(/\s/g, ''))
+                    ? 'Los resultados estarán disponibles cuando la orden sea procesada.'
+                    : 'No se registraron resultados para esta orden.'}
                 </div>
               )}
 
-              {/* Lab Footer Details */}
+              {/* Footer metadata */}
               <div className="mt-4 pt-3 border-t border-border/50 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
                 {lab.resultados?.[0]?.bioquimicoResponsable && (
                   <p>Bioquímico: <span className="text-foreground font-medium">{lab.resultados[0].bioquimicoResponsable}</span></p>
                 )}
                 {lab.resultados?.[0]?.fechaCarga && (
-                  <p>Fecha de Análisis: <span className="text-foreground font-medium">{formatDate(lab.resultados[0].fechaCarga)}</span></p>
+                  <p>Fecha análisis: <span className="text-foreground font-medium">{formatDate(lab.resultados[0].fechaCarga)}</span></p>
                 )}
-                {lab.prioridad && (
-                  <p>Prioridad: <span className={cn("font-medium", lab.prioridad === 'STAT' ? "text-destructive" : "text-foreground")}>{lab.prioridad}</span></p>
+                {lab.origen && (
+                  <p>Origen: <span className="text-foreground font-medium">{lab.origen}</span></p>
                 )}
               </div>
 
@@ -916,7 +1018,7 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
                 onClick={() => downloadLabPDF(lab, user ? `${user.nombre} ${user.apellido}`.trim() : (lab.pacienteNombre || 'Paciente'))}
               >
                 <Download className="w-3.5 h-3.5 mr-2" />
-                Descargar informe
+                Descargar informe PDF
               </Button>
             </div>
           </div>
