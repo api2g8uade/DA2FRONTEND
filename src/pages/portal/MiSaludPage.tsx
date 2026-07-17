@@ -95,11 +95,13 @@ function AppointmentsTab({
                 <Badge
                   className={cn(
                     'text-xs capitalize',
-                    isPast
-                      ? 'bg-muted text-muted-foreground border-border'
-                      : (appt.status === 'confirmado' || appt.status === 'APROBADO' || appt.status === 'CONFIRMADO'
-                        ? 'bg-primary/10 text-primary border-primary/20'
-                        : 'bg-amber-50 text-amber-700 border-amber-200')
+                    appt.status === 'CANCELLED' || appt.status === 'cancelado'
+                      ? 'bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/10'
+                      : (isPast
+                        ? 'bg-muted text-muted-foreground border-border'
+                        : (appt.status === 'confirmado' || appt.status === 'APROBADO' || appt.status === 'CONFIRMADO'
+                          ? 'bg-primary/10 text-primary border-primary/20'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'))
                   )}
                   variant="outline"
                 >
