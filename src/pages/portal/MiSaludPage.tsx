@@ -1060,8 +1060,6 @@ export function MiSaludPage() {
     return recipes.filter((r) => r.estado === 'VIGENTE' || r.estado === 'Activa').length
   }, [recipes])
 
-  const loading = loadingAppointments || loadingLab
-
   return (
     <div>
       <div className="mb-6 sm:mb-8">
