@@ -760,6 +760,7 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
 
     for (const res of labResults) {
       const s = String(res.estado ?? '').toLowerCase().replace(/\s/g, '')
+      if (s === '0' || s === 'pendiente' || s === '1' || s === 'enproceso') continue
       const isFinished = s === '3' || s === 'entregada' || s === 'finalizado'
       const reqDate = res.fechaSolicitud ? new Date(res.fechaSolicitud) : (res.createdAt ? new Date(res.createdAt) : new Date())
 
@@ -787,7 +788,9 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
     const isOpen = expandedId === labId
     const estadoConfig = getEstadoConfig(lab.estado)
     const isFinished = ['finalizada', 'entregada', 'finalizado', '2', '3'].includes(String(lab.estado ?? '').toLowerCase().replace(/\s/g, ''))
-    const isNew = newResultIds.has(labId) && isFinished
+    const isEntregada = ['3', 'entregada', 'finalizado'].includes(String(lab.estado ?? '').toLowerCase().replace(/\s/g, ''))
+    const isFinalizada = ['2', 'finalizada'].includes(String(lab.estado ?? '').toLowerCase().replace(/\s/g, ''))
+    const isNew = newResultIds.has(labId) && isEntregada
     const hasResults = (lab.resultados?.length ?? 0) > 0
     const hasCritical = lab.resultados?.some(r => r.esCritico)
     const hasOutOfRange = lab.resultados?.some(r => r.fueraDeRango && !r.esCritico)
@@ -822,12 +825,12 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
                     <p className="font-semibold text-foreground">
                       {studyNames.length > 0 ? studyNames[0] : 'Orden de Laboratorio'}
                     </p>
-                    {isNew && (
+                    {isNew && isEntregada && (
                       <span className="text-[10px] font-bold uppercase tracking-wide bg-emerald-500 text-white px-2 py-0.5 rounded-full animate-pulse">
                         Nuevo
                       </span>
                     )}
-                    {hasCritical && (
+                    {isEntregada && hasCritical && (
                       <span className="flex items-center gap-1 text-[10px] font-bold uppercase bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
                         <AlertTriangle className="w-3 h-3" /> Crítico
                       </span>
@@ -908,7 +911,7 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
               </div>
 
               {/* Resultados */}
-              {hasResults ? (
+              {isEntregada && hasResults ? (
                 <>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Resultados de análisis</p>
                   <div className="overflow-x-auto">
@@ -981,20 +984,23 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
                     </div>
                   )}
                 </>
+              ) : isFinalizada ? (
+                <div className="py-4 text-center text-sm text-muted-foreground">
+                  <Clock className="w-5 h-5 mx-auto mb-2 text-primary animate-pulse" />
+                  Resultados próximamente. Tu orden fue finalizada y los resultados estarán disponibles pronto.
+                </div>
               ) : (
                 <div className="py-4 text-center text-sm text-muted-foreground">
-                  {['0', 'pendiente', '1', 'enproceso'].includes(String(lab.estado ?? '').toLowerCase().replace(/\s/g, ''))
-                    ? 'Los resultados estarán disponibles cuando la orden sea procesada.'
-                    : 'No se registraron resultados para esta orden.'}
+                  No se registraron resultados para esta orden.
                 </div>
               )}
 
               {/* Footer metadata */}
               <div className="mt-4 pt-3 border-t border-border/50 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
-                {lab.resultados?.[0]?.bioquimicoResponsable && (
+                {isEntregada && lab.resultados?.[0]?.bioquimicoResponsable && (
                   <p>Bioquímico: <span className="text-foreground font-medium">{lab.resultados[0].bioquimicoResponsable}</span></p>
                 )}
-                {lab.resultados?.[0]?.fechaCarga && (
+                {isEntregada && lab.resultados?.[0]?.fechaCarga && (
                   <p>Fecha análisis: <span className="text-foreground font-medium">{formatDate(lab.resultados[0].fechaCarga)}</span></p>
                 )}
                 {lab.origen && (
@@ -1002,15 +1008,17 @@ function LabTab({ labResults, refreshLab }: { labResults: LabResult[], refreshLa
                 )}
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4 border-border text-foreground hover:bg-muted"
-                onClick={() => downloadLabPDF(lab, user ? `${user.nombre} ${user.apellido}`.trim() : (lab.pacienteNombre || 'Paciente'))}
-              >
-                <Download className="w-3.5 h-3.5 mr-2" />
-                Descargar informe PDF
-              </Button>
+              {isEntregada && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4 border-border text-foreground hover:bg-muted"
+                  onClick={() => downloadLabPDF(lab, user ? `${user.nombre} ${user.apellido}`.trim() : (lab.pacienteNombre || 'Paciente'))}
+                >
+                  <Download className="w-3.5 h-3.5 mr-2" />
+                  Descargar informe PDF
+                </Button>
+              )}
             </div>
           </div>
         )}
