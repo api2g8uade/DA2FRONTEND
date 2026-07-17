@@ -360,7 +360,7 @@ export function PagosPage() {
 
   useEffect(() => {
     if (user?.token) {
-      void loadPayments()
+      void loadPayments(true)
     }
   }, [user?.token])
 

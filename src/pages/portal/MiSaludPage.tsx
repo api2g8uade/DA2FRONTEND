@@ -993,7 +993,7 @@ export function MiSaludPage() {
 
   useEffect(() => {
     if (user?.token) {
-      refreshAll()
+      refreshAll(true)
     }
   }, [user?.token])
 

@@ -71,8 +71,8 @@ export function HealthProvider({ children }: { children: ReactNode }) {
       })
       if (response.ok) {
         const data = await response.json()
-        if (data && data.user) {
-          const { first_name, last_name, nombre, apellido, dni, telefono, obraSocial, nroAfiliado, fechaNacimiento } = data.user
+        if (data) {
+          const { first_name, last_name, nombre, apellido, dni, telefono, obraSocial, nroAfiliado, fechaNacimiento } = data
           const updatedData: Partial<AuthUser> = {}
           if (nombre || first_name) updatedData.nombre = nombre || first_name
           if (apellido || last_name) updatedData.apellido = apellido || last_name
@@ -90,9 +90,9 @@ export function HealthProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.token, updateUser])
 
-  const refreshRecipes = useCallback(async () => {
+  const refreshRecipes = useCallback(async (silent = false) => {
     if (!user?.token) return
-    setLoadingRecipes(true)
+    if (!silent) setLoadingRecipes(true)
     setRecipesError(null)
     try {
       const data = await fetchRecipes(user.token)
@@ -100,13 +100,13 @@ export function HealthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       setRecipesError(err instanceof Error ? err.message : 'Error cargando recetas')
     } finally {
-      setLoadingRecipes(false)
+      if (!silent) setLoadingRecipes(false)
     }
   }, [user?.token])
 
-  const refreshAppointments = useCallback(async () => {
+  const refreshAppointments = useCallback(async (silent = false) => {
     if (!user?.token) return
-    setLoadingAppointments(true)
+    if (!silent) setLoadingAppointments(true)
     setAppointmentsError(null)
     try {
       const data = await fetchAppointments(user.token)
@@ -114,13 +114,13 @@ export function HealthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       setAppointmentsError(err instanceof Error ? err.message : 'Error cargando turnos')
     } finally {
-      setLoadingAppointments(false)
+      if (!silent) setLoadingAppointments(false)
     }
   }, [user?.token])
 
-  const refreshLab = useCallback(async () => {
+  const refreshLab = useCallback(async (silent = false) => {
     if (!user?.token) return
-    setLoadingLab(true)
+    if (!silent) setLoadingLab(true)
     setLabError(null)
     try {
       const data = await fetchLabResults(user.token)
@@ -128,13 +128,13 @@ export function HealthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       setLabError(err instanceof Error ? err.message : 'Error cargando resultados')
     } finally {
-      setLoadingLab(false)
+      if (!silent) setLoadingLab(false)
     }
   }, [user?.token])
 
-  const refreshPayments = useCallback(async () => {
+  const refreshPayments = useCallback(async (silent = false) => {
     if (!user?.token) return
-    setLoadingPayments(true)
+    if (!silent) setLoadingPayments(true)
     setPaymentsError(null)
     try {
       const response = await fetch(apiUrl('/api/pagos/historial'), {
@@ -146,18 +146,18 @@ export function HealthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       setPaymentsError(err instanceof Error ? err.message : 'No se pudo cargar el historial de pagos.')
     } finally {
-      setLoadingPayments(false)
+      if (!silent) setLoadingPayments(false)
     }
   }, [user?.token])
 
-  const refreshAll = useCallback(() => {
+  const refreshAll = useCallback((silent = false) => {
     if (!user?.token) return
     // Disparar todos en paralelo (no bloqueante entre sí)
     refreshProfile()
-    refreshRecipes()
-    refreshAppointments()
-    refreshLab()
-    refreshPayments()
+    refreshRecipes(silent)
+    refreshAppointments(silent)
+    refreshLab(silent)
+    refreshPayments(silent)
   }, [user?.token, refreshProfile, refreshRecipes, refreshAppointments, refreshLab, refreshPayments])
 
   // Pre-cargar datos tan pronto como el usuario inicie sesión
