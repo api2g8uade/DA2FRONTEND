@@ -21,11 +21,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useAuth } from '@/src/context/AuthContext'
-import { API_BASE_URL } from '@/lib/api'
-import { io } from 'socket.io-client'
 import { jsPDF } from 'jspdf'
-
-const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
 
 const renderIndications = (indicacionesStr: string) => {
   if (!indicacionesStr) return <p className="text-xs text-muted-foreground mt-1">Sin indicaciones particulares</p>;
@@ -1107,32 +1103,6 @@ export function MiSaludPage() {
       refreshAll(true)
     }
   }, [user?.token])
-
-  // Escuchar notificaciones vía WebSockets para sincronizar en tiempo real
-  useEffect(() => {
-    if (!user?.id) return
-
-    console.log('[mi-salud] Conectando WebSocket silencioso para recargas en tiempo real...')
-    const socket = io(API_BASE_URL, {
-      transports: ['websocket', 'polling']
-    })
-
-    socket.emit('subscribe_notifications', user.id)
-
-    socket.on('nueva_notificacion', (notif: any) => {
-      console.log('[mi-salud] Notificación recibida en tiempo real:', notif)
-      // Recargar datos silenciosamente
-      refreshAppointments()
-      refreshLab()
-      refreshRecipes()
-    })
-
-    return () => {
-      socket.off('nueva_notificacion')
-      socket.disconnect()
-      console.log('[mi-salud] WebSocket de recarga en tiempo real desconectado.')
-    }
-  }, [user, refreshAppointments, refreshLab, refreshRecipes])
 
   // Clasificar turnos
   const { upcomingAppointments, pastAppointments } = useMemo(() => {

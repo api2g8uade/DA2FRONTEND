@@ -16,9 +16,13 @@ export function SSOCallbackPage() {
 
     // 1) Si ya vino redirigido desde backend con ?token=...
     if (token) {
-      // Intentamos extraer datos básicos si vienen o redirigimos directo
-      localStorage.setItem('token', token)
-      navigate(redirect, { replace: true })
+      // Guardar token en sessionStorage para que sea consistente con AuthContext
+      const authUser = {
+        token,
+        isDemo: false
+      }
+      sessionStorage.setItem('healthgrid-session', JSON.stringify(authUser))
+      window.location.href = redirect
       return
     }
 
@@ -77,7 +81,7 @@ export function SSOCallbackPage() {
             <p className="font-semibold mb-1">Error de Autenticación SSO</p>
             <p>{error}</p>
             <button
-              onClick={() => navigate('/login', { replace: true })}
+              onClick={() => navigate('/', { replace: true })}
               className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white font-medium text-sm transition"
             >
               Volver a Iniciar Sesión

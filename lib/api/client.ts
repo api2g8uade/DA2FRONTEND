@@ -1,6 +1,6 @@
 // El cliente HTTP que incluye el token automáticamente
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+import { API_BASE_URL } from '@/lib/api'
 
 type RequestOptions = RequestInit & {
   token?: string
@@ -26,7 +26,6 @@ export async function apiCall<T>(
 
   if (!response.ok) {
     if (response.status === 401) {
-      // Logout si no está autorizado
       console.error('Unauthorized')
     }
     throw new Error(`API Error: ${response.status}`)
