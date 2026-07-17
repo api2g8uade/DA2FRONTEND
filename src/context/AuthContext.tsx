@@ -168,7 +168,10 @@ async function fetchBackendSession(input: {
   try {
     const mode = await getBackendMode()
 
-    if (mode === 'real' && input.password) {
+    if (mode === 'real') {
+      if (!input.password) {
+        return {} // Strict auth requires a password in real mode
+      }
       const real = await fetch(apiUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -178,9 +181,14 @@ async function fetchBackendSession(input: {
         }),
       })
 
-      if (real.ok) return mapBackendUser(await real.json())
+      if (real.ok) {
+        return mapBackendUser(await real.json())
+      } else {
+        return {} // Return empty object so login fails on bad credentials
+      }
     }
 
+    // Only fallback/use mock-login in mock mode
     const response = await fetch(apiUrl('/api/auth/mock-login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
