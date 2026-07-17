@@ -540,10 +540,6 @@ function PrescriptionsTab() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const { recipes, loadingRecipes: loading, recipesError: error, refreshRecipes } = useHealth()
 
-  useEffect(() => {
-    refreshRecipes()
-  }, [refreshRecipes])
-
   const vigentes = useMemo(() => {
     return recipes.filter(r => r.estado === 'VIGENTE' || r.estado === 'Activa')
   }, [recipes])
@@ -996,12 +992,11 @@ export function MiSaludPage() {
 
   const loading = loadingRecipes || loadingAppointments || loadingLab
 
-  // Realizar un refresh silencioso al montar la pestaña por si hay datos frescos
   useEffect(() => {
     if (user?.token) {
       refreshAll()
     }
-  }, [user?.token, refreshAll])
+  }, [user?.token])
 
   // Escuchar notificaciones vía WebSockets para sincronizar en tiempo real
   useEffect(() => {
